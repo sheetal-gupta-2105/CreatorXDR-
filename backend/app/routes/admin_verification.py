@@ -1,5 +1,6 @@
 
 import json
+from app.blockchain.hashing import HASH_VERSION, hash_audit_event
 import logging
 import re
 
@@ -94,14 +95,23 @@ def _admin_submission_dict(submission):
     }
 
 
+
 def _record_audit(admin_id, submission_id, event_type):
-    db.session.add(
-        AdminAuditLog(
-            admin_id=admin_id,
-            submission_id=submission_id,
-            event_type=event_type,
-        )
+    audit_log = AdminAuditLog(
+        admin_id=admin_id,
+        submission_id=submission_id,
+        event_type=event_type,
     )
+
+    db.session.add(audit_log)
+
+    # Populate the database-generated ID and timestamp first.
+    db.session.flush()
+
+    # Generate the hash from the canonical audit event.
+    audit_log.event_hash = hash_audit_event(audit_log)
+    audit_log.hash_version = HASH_VERSION
+
 
 
 def _decrypt_value(encrypted_value, fernet):

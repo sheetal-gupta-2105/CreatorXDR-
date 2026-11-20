@@ -47,6 +47,19 @@ class AdminAuditLog(db.Model):
         index=True,
     )
 
+    # Cryptographic integrity fields.
+    # Nullable to preserve existing historical audit records.
+    event_hash = db.Column(
+        db.String(64),
+        nullable=True,
+        index=True,
+    )
+
+    hash_version = db.Column(
+        db.String(32),
+        nullable=True,
+    )
+
     admin = db.relationship("User")
 
     submission = db.relationship(
@@ -60,4 +73,6 @@ class AdminAuditLog(db.Model):
             "submission_id": self.submission_id,
             "event_type": self.event_type,
             "created_at": self.created_at.isoformat(),
+            "event_hash": self.event_hash,
+            "hash_version": self.hash_version,
         }
