@@ -1,6 +1,6 @@
 
 from app.models.user import User, EmailVerification
-
+from app.models.merkle_batch import MerkleBatch, MerkleBatchLeaf
 from app.models.verification import (
     VerificationSubmission,
     VerificationReview,
@@ -18,4 +18,6 @@ __all__ = [
     "IdentityFingerprint",
     "OCRResult",
     "AdminAuditLog",
+    "MerkleBatch",
+    "MerkleBatchLeaf",
 ]

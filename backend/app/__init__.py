@@ -18,6 +18,8 @@ from app.models import (
     IdentityFingerprint,
     OCRResult,
     AdminAuditLog,
+    MerkleBatch,
+    MerkleBatchLeaf,
 )
 
 from app.routes import (
