@@ -35,3 +35,9 @@ cache/
 .DS_Store
 
 backend/storage/
+# Docker and local secrets
+.env
+!.env.example
+
+# Uploaded identity documents
+backend/storage/
