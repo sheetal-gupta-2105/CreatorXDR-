@@ -29,6 +29,14 @@ from app.routes import (
     admin_verification_bp,
     admin_blockchain_bp,
 )
+from app.routes import (
+    health_bp,
+    auth_bp,
+    verification_bp,
+    admin_verification_bp,
+    admin_blockchain_bp,
+    threats_bp,
+)
 
 from app.services.auth_service import hash_password
 
@@ -51,6 +59,11 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+        # Register creator threat detection routes
+    app.register_blueprint(
+        threats_bp,
+        url_prefix="/api/threats",
+    )
 
     # Configure CORS
     CORS(

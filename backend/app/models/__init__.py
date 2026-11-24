@@ -1,4 +1,6 @@
-
+from app.models.social_profile import CreatorSocialProfile
+from app.models.monitored_profile import MonitoredProfile
+from app.models.threat_detection import ThreatDetection
 from app.models.user import User, EmailVerification
 from app.models.merkle_batch import MerkleBatch, MerkleBatchLeaf
 from app.models.verification import (
@@ -20,4 +22,7 @@ __all__ = [
     "AdminAuditLog",
     "MerkleBatch",
     "MerkleBatchLeaf",
+    "CreatorSocialProfile",
+    "MonitoredProfile",
+    "ThreatDetection",
 ]
