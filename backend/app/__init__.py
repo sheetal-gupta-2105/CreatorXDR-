@@ -77,7 +77,12 @@ def create_app(test_config=None):
             x_prefix=trusted_proxies,
         )
 
-    # Configure Limiter (reset singleton runtime state so multiple create_app() calls stay isolated)
+    # Configure Limiter.
+    # Flask-Limiter's init_app() mutates instance-level runtime state on the module-level
+    # singleton (e.g. _storage_dead, _storage, _limiter, _in_memory_fallback, and
+    # limit_manager._default_limits). In multi-app test sessions, stale state from an
+    # earlier create_app() call leaks into subsequent apps, so we reset those internal
+    # attributes before re-initializing against the new app's config.
     limiter.enabled = bool(app.config.get("RATELIMIT_ENABLED", True))
     limiter._storage_dead = False
     limiter._storage = None
