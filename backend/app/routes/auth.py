@@ -9,8 +9,10 @@ from flask_jwt_extended import (
     jwt_required,
 )
 
-from app.extensions import db
+from app.extensions import db, limiter
+from app.extensions.limiter import get_email_or_ip, is_401_response
 from app.models.user import User, EmailVerification
+
 from app.services.auth_service import (
     hash_password,
     verify_password,
@@ -25,7 +27,9 @@ logger = logging.getLogger(__name__)
 
 
 @auth_bp.post("/register")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_REGISTER", "5 per hour; 15 per day"))
 def register():
+
     data = request.get_json(silent=True) or {}
 
     email = str(data.get("email", "")).strip().lower()
@@ -110,7 +114,9 @@ def register():
 
 
 @auth_bp.post("/verify-email")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_VERIFY_EMAIL", "10 per 15 minutes"), key_func=get_email_or_ip)
 def verify_email():
+
     data = request.get_json(silent=True) or {}
 
     email = str(data.get("email", "")).strip().lower()
@@ -170,7 +176,14 @@ def verify_email():
 
 
 @auth_bp.post("/login")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_LOGIN_IP", "10 per minute; 30 per hour"))
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_LOGIN_ACCOUNT", "5 per 15 minutes"),
+    key_func=get_email_or_ip,
+    deduct_when=is_401_response,
+)
 def login():
+
     data = request.get_json(silent=True) or {}
 
     email = str(data.get("email", "")).strip().lower()
@@ -226,8 +239,10 @@ def login():
 
 
 @auth_bp.post("/refresh")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_REFRESH_TOKEN", "30 per minute"))
 @jwt_required(refresh=True)
 def refresh():
+
     user_id = get_jwt_identity()
     user = db.session.get(User, user_id)
 
@@ -272,8 +287,10 @@ def get_current_user():
 
 
 @auth_bp.patch("/profile")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_PROFILE_UPDATE", "15 per minute"))
 @jwt_required()
 def update_profile():
+
     user_id = get_jwt_identity()
     user = db.session.get(User, user_id)
 

@@ -3,12 +3,14 @@ import re
 
 import click
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from werkzeug.exceptions import RequestEntityTooLarge
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app.config import Config
-from app.extensions import db, migrate, jwt
+from app.extensions import db, migrate, jwt, limiter
+
 
 from app.models import (
     User,
@@ -40,6 +42,8 @@ def create_app(test_config=None):
 
     if test_config:
         app.config.update(test_config)
+        if test_config.get("TESTING") and "RATELIMIT_ENABLED" not in test_config:
+            app.config["RATELIMIT_ENABLED"] = False
 
     if not app.config.get("SQLALCHEMY_DATABASE_URI"):
         raise RuntimeError("DATABASE_URL is not configured")
@@ -57,10 +61,56 @@ def create_app(test_config=None):
             )
 
     # Initialize extensions
-
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+
+    # Configure ProxyFix if trusted proxies are present
+    trusted_proxies = app.config.get("TRUSTED_PROXY_COUNT", 0)
+    if trusted_proxies > 0:
+        app.wsgi_app = ProxyFix(
+            app.wsgi_app,
+            x_for=trusted_proxies,
+            x_proto=trusted_proxies,
+            x_host=trusted_proxies,
+            x_port=trusted_proxies,
+            x_prefix=trusted_proxies,
+        )
+
+    # Configure Limiter (reset singleton runtime state so multiple create_app() calls stay isolated)
+    limiter.enabled = bool(app.config.get("RATELIMIT_ENABLED", True))
+    limiter._storage_dead = False
+    limiter._storage = None
+    limiter._limiter = None
+    limiter._in_memory_fallback = []
+    limiter.limit_manager._default_limits = []
+    limiter.limit_manager._application_limits = []
+    limiter.initialized = False
+    limiter.init_app(app)
+
+    # Register custom 429 error handler
+    @app.errorhandler(429)
+    def ratelimit_handler(e):
+        app.logger.warning(
+            "Rate limit exceeded on %s %s from IP %s",
+            request.method,
+            request.path,
+            request.remote_addr,
+        )
+        retry_after = getattr(e, "retry_after", None)
+        if retry_after is None:
+            # Fallback estimation from description if available
+            retry_after = 60
+
+        response = jsonify({
+            "error": "Rate limit exceeded. Please try again later.",
+            "retry_after": int(retry_after),
+        })
+        response.status_code = 429
+        response.headers["Retry-After"] = str(int(retry_after))
+        return response
+
+
 
     # Configure CORS
     CORS(

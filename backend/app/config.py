@@ -70,6 +70,54 @@ class Config:
 
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
+    # Rate Limiting Configuration
+    # RQ uses DB 0 (e.g. redis://.../0). Limiter uses DB 1 by default.
+    RATELIMIT_STORAGE_URI = os.getenv(
+        "RATELIMIT_STORAGE_URI",
+        os.getenv("REDIS_URL", "redis://localhost:6379/0").rsplit("/", 1)[0] + "/1"
+        if "/" in os.getenv("REDIS_URL", "redis://localhost:6379/0")
+        else "redis://localhost:6379/1"
+    )
+    RATELIMIT_STRATEGY = os.getenv("RATELIMIT_STRATEGY", "moving-window")
+    RATELIMIT_DEFAULT = os.getenv("RATELIMIT_DEFAULT", "200 per minute")
+    RATELIMIT_HEADERS_ENABLED = True
+    RATELIMIT_IN_MEMORY_FALLBACK = os.getenv("RATELIMIT_DEFAULT", "200 per minute")
+
+    RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "false" if (os.getenv("TESTING") == "true") else "true").lower() in {
+        "1", "true", "yes"
+    }
+
+    RATELIMIT_FALLBACK_ENABLED = os.getenv(
+        "RATELIMIT_FALLBACK_ENABLED",
+        "true"
+        if (
+            os.getenv("FLASK_DEBUG", "false").lower() in {"1", "true", "yes"}
+            or os.getenv("FLASK_ENV") == "development"
+            or os.getenv("TESTING", "false").lower() in {"1", "true", "yes"}
+        )
+        else "false",
+    ).lower() in {"1", "true", "yes"}
+    RATELIMIT_IN_MEMORY_FALLBACK_ENABLED = RATELIMIT_FALLBACK_ENABLED
+    TRUSTED_PROXY_COUNT = int(os.getenv("TRUSTED_PROXY_COUNT", "0"))
+
+
+    # Configurable endpoint limits
+    RATELIMIT_REGISTER = os.getenv("RATELIMIT_REGISTER", "5 per hour; 15 per day")
+    RATELIMIT_LOGIN_IP = os.getenv("RATELIMIT_LOGIN_IP", "10 per minute; 30 per hour")
+    RATELIMIT_LOGIN_ACCOUNT = os.getenv("RATELIMIT_LOGIN_ACCOUNT", "5 per 15 minutes")
+    RATELIMIT_VERIFY_EMAIL = os.getenv("RATELIMIT_VERIFY_EMAIL", "10 per 15 minutes")
+    RATELIMIT_RESEND_OTP = os.getenv("RATELIMIT_RESEND_OTP", "3 per hour")
+    RATELIMIT_FORGOT_PASSWORD = os.getenv("RATELIMIT_FORGOT_PASSWORD", "3 per hour")
+    RATELIMIT_RESET_PASSWORD = os.getenv("RATELIMIT_RESET_PASSWORD", "5 per hour")
+    RATELIMIT_REFRESH_TOKEN = os.getenv("RATELIMIT_REFRESH_TOKEN", "30 per minute")
+    RATELIMIT_PROFILE_UPDATE = os.getenv("RATELIMIT_PROFILE_UPDATE", "15 per minute")
+    RATELIMIT_DOCUMENT_UPLOAD_USER = os.getenv("RATELIMIT_DOCUMENT_UPLOAD_USER", "10 per hour")
+    RATELIMIT_DOCUMENT_UPLOAD_IP = os.getenv("RATELIMIT_DOCUMENT_UPLOAD_IP", "20 per hour")
+    RATELIMIT_ADMIN_ACTIONS = os.getenv("RATELIMIT_ADMIN_ACTIONS", "60 per minute")
+    RATELIMIT_ADMIN_QUEUE = os.getenv("RATELIMIT_ADMIN_QUEUE", "30 per minute")
+    RATELIMIT_ADMIN_DOCUMENT_STREAM = os.getenv("RATELIMIT_ADMIN_DOCUMENT_STREAM", "30 per minute")
+
+
     EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "console").lower()
     EMAIL_SYNC_FALLBACK = os.getenv(
         "EMAIL_SYNC_FALLBACK",

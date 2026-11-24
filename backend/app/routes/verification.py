@@ -5,8 +5,10 @@ import re
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from app.extensions import db
+from app.extensions import db, limiter
+from app.extensions.limiter import get_user_or_ip
 from app.models.user import User
+
 from app.models.verification import VerificationSubmission
 from app.services.document_storage import (
     DocumentValidationError,
@@ -35,8 +37,11 @@ ALLOWED_DOCUMENT_TYPES = {
 
 
 @verification_bp.post("/upload")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_DOCUMENT_UPLOAD_USER", "10 per hour"), key_func=get_user_or_ip)
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_DOCUMENT_UPLOAD_IP", "20 per hour"))
 @jwt_required()
 def upload_document():
+
     user_id = get_jwt_identity()
     user = db.session.get(User, user_id)
 

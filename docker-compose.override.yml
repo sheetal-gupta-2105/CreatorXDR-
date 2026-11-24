@@ -1,0 +1,7 @@
+# Local development override
+# Exposes Redis to localhost:6379 for local worker/debugger access.
+# Not used in production.
+services:
+  redis:
+    ports:
+      - "127.0.0.1:6379:6379"

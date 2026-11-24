@@ -13,14 +13,13 @@ from app.tasks.email_tasks import execute_email_job
 
 @pytest.fixture
 def app():
-    app = create_app()
-    app.config.update({
+    return create_app({
         "TESTING": True,
+        "RATELIMIT_ENABLED": False,
         "EMAIL_PROVIDER": "console",
         "EMAIL_FROM_ADDRESS": "security@test.creatorxdr",
         "EMAIL_FROM_NAME": "CreatorXDR Test Security",
     })
-    return app
 
 
 def test_console_email_provider():

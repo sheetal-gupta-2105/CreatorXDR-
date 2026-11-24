@@ -18,8 +18,10 @@ from flask import (
 )
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
-from app.extensions import db
+from app.extensions import db, limiter
+from app.extensions.limiter import get_user_or_ip
 from app.models.user import User
+
 from app.models.verification import (
     VerificationSubmission,
     VerificationReview,
@@ -132,8 +134,10 @@ def _decrypt_value(encrypted_value, fernet):
 
 
 @admin_verification_bp.get("/submissions")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_ADMIN_QUEUE", "30 per minute"), key_func=get_user_or_ip)
 @jwt_required()
 def list_review_queue():
+
     admin = _get_admin()
 
     if not admin:
@@ -302,8 +306,10 @@ def get_submission_details(submission_id):
 @admin_verification_bp.get(
     "/submissions/<submission_id>/document"
 )
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_ADMIN_DOCUMENT_STREAM", "30 per minute"), key_func=get_user_or_ip)
 @jwt_required()
 def get_submission_document(submission_id):
+
     admin = _get_admin()
 
     if not admin:
@@ -394,8 +400,10 @@ def get_submission_document(submission_id):
 @admin_verification_bp.post(
     "/submissions/<submission_id>/review"
 )
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_ADMIN_ACTIONS", "60 per minute"), key_func=get_user_or_ip)
 @jwt_required()
 def review_submission(submission_id):
+
     admin = _get_admin()
 
     if not admin:
