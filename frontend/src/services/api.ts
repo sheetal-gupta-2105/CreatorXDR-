@@ -8,6 +8,7 @@ const REFRESH_TOKEN_KEY = 'creatorxdr_refresh_token'
 export type User = {
   id: string
   email: string
+  full_name: string | null
   role: string
   email_verified: boolean
 }
@@ -36,7 +37,7 @@ export class ApiError extends Error {
 }
 
 type ApiOptions = {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'PATCH'
   body?: unknown
   token?: string | null
   retryOnUnauthorized?: boolean
@@ -179,12 +180,17 @@ async function apiRequest<T>(
 }
 
 export async function registerUser(
+  fullName: string,
   email: string,
   password: string,
 ): Promise<RegistrationResponse> {
   return apiRequest<RegistrationResponse>('/auth/register', {
     method: 'POST',
-    body: { email, password },
+    body: {
+      full_name: fullName,
+      email,
+      password,
+    },
     token: null,
     retryOnUnauthorized: false,
   })
@@ -232,4 +238,14 @@ export async function getCurrentUser(): Promise<User> {
 
 export function logoutUser() {
   clearAuthTokens()
+}
+export async function updateUserProfile(
+  fullName: string,
+): Promise<{ message: string; user: User }> {
+  return apiRequest<{ message: string; user: User }>('/auth/profile', {
+    method: 'PATCH',
+    body: {
+      full_name: fullName,
+    },
+  })
 }

@@ -1,6 +1,9 @@
+
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import AdminVerificationPage from './pages/AdminVerificationPage'
+import AdminBlockchainPage from './pages/AdminBlockchainPage'
 import {
   Activity,
   AlertTriangle,
@@ -88,7 +91,35 @@ const navigation: NavigationItem[] = [
     icon: ClipboardCheck,
     section: 'ADMIN',
   },
+  {
+    label: 'Blockchain audit',
+    path: '/admin/blockchain',
+    icon: Blocks,
+    section: 'ADMIN',
+  },
 ]
+
+function getDisplayName(
+  fullName?: string | null,
+  email?: string | null,
+): string {
+  return (
+    fullName?.trim() ||
+    email?.split('@')[0] ||
+    'Creator'
+  )
+}
+
+function getInitials(name: string): string {
+  return (
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join('') || 'CR'
+  )
+}
 
 function Sidebar({
   mobileOpen,
@@ -101,10 +132,20 @@ function Sidebar({
 
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
 
-  const visibleSections =
-    user?.role === 'ADMIN'
-      ? ['WORKSPACE', 'SECURITY', 'ADMIN']
-      : ['WORKSPACE', 'SECURITY']
+  const displayName = getDisplayName(
+    user?.full_name,
+    user?.email,
+  )
+
+  const initials = getInitials(displayName)
+
+  const accountLabel = isAdmin
+    ? 'Admin account'
+    : 'Creator account'
+
+  const visibleSections = isAdmin
+    ? ['WORKSPACE', 'SECURITY', 'ADMIN']
+    : ['WORKSPACE', 'SECURITY']
 
   return (
     <>
@@ -121,10 +162,16 @@ function Sidebar({
           <div className="brand-mark">
             <ShieldCheck size={21} strokeWidth={2.2} />
           </div>
+
           <div className="brand-copy">
-            <span className="brand-name">creator<span>xd</span>r</span>
-            <span className="brand-caption">CREATOR SECURITY</span>
+            <span className="brand-name">
+              creator<span>xd</span>r
+            </span>
+            <span className="brand-caption">
+              CREATOR SECURITY
+            </span>
           </div>
+
           <button
             className="icon-button sidebar-close"
             onClick={onClose}
@@ -136,21 +183,29 @@ function Sidebar({
 
         <div className="workspace-switcher">
           <div className="workspace-avatar">
-          {isAdmin ? 'A' : 'T'}
-         </div>
+            {initials}
+          </div>
 
           <div className="workspace-copy">
-          <strong>{isAdmin ? 'Admin workspace' : 'Personal workspace'}</strong>
-           <span>{isAdmin ? 'Administrator account' : 'Creator account'}</span>
-         </div>
+            <strong>
+              {isAdmin ? 'Admin workspace' : 'Personal workspace'}
+            </strong>
+            <span>{accountLabel}</span>
+          </div>
 
-  <ChevronDown size={15} className="muted-icon" />
-</div>
+          <ChevronDown size={15} className="muted-icon" />
+        </div>
 
-        <nav className="side-navigation" aria-label="Main navigation">
+        <nav
+          className="side-navigation"
+          aria-label="Main navigation"
+        >
           {visibleSections.map((section) => (
             <div className="nav-section" key={section}>
-              <p className="nav-section-title">{section}</p>
+              <p className="nav-section-title">
+                {section}
+              </p>
+
               {navigation
                 .filter((item) => item.section === section)
                 .map((item) => {
@@ -169,10 +224,13 @@ function Sidebar({
                       }
                     >
                       <Icon size={17} strokeWidth={1.8} />
+
                       <span>{item.label}</span>
 
                       {item.path === '/threats' && (
-                        <span className="nav-count">2</span>
+                        <span className="nav-count">
+                          2
+                        </span>
                       )}
                     </NavLink>
                   )
@@ -186,10 +244,12 @@ function Sidebar({
             <div className="help-icon">
               <CircleHelp size={17} />
             </div>
+
             <div>
               <strong>Need a hand?</strong>
               <span>Explore the security guide</span>
             </div>
+
             <ArrowUpRight size={15} />
           </div>
 
@@ -224,11 +284,15 @@ function Sidebar({
           </button>
 
           <div className="profile-row">
-            <div className="profile-avatar">TK</div>
-            <div className="profile-copy">
-              <strong>Tanishq Khetwal</strong>
-              <span>Creator account</span>
+            <div className="profile-avatar">
+              {initials}
             </div>
+
+            <div className="profile-copy">
+              <strong>{displayName}</strong>
+              <span>{accountLabel}</span>
+            </div>
+
             <button
               className="icon-button profile-menu"
               aria-label="Profile menu"
@@ -251,12 +315,23 @@ function MoreIcon() {
     </span>
   )
 }
+
 function Topbar({
   onMenuClick,
 }: {
   onMenuClick: () => void
 }) {
-  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notificationsOpen, setNotificationsOpen] =
+    useState(false)
+
+  const { user } = useAuth()
+
+  const displayName = getDisplayName(
+    user?.full_name,
+    user?.email,
+  )
+
+  const initials = getInitials(displayName)
 
   return (
     <header className="topbar">
@@ -268,6 +343,7 @@ function Topbar({
         >
           <Menu size={21} />
         </button>
+
         <div className="breadcrumb">
           <span>Workspace</span>
           <span className="breadcrumb-separator">/</span>
@@ -285,7 +361,9 @@ function Topbar({
           <button
             className="icon-button notification-button"
             aria-label="Notifications"
-            onClick={() => setNotificationsOpen(!notificationsOpen)}
+            onClick={() =>
+              setNotificationsOpen(!notificationsOpen)
+            }
           >
             <Bell size={19} />
             <span className="notification-indicator" />
@@ -297,23 +375,31 @@ function Topbar({
                 <strong>Notifications</strong>
                 <span className="demo-tag">DEMO</span>
               </div>
+
               <div className="notification-item">
                 <div className="notification-item-icon warning-icon">
                   <AlertTriangle size={16} />
                 </div>
+
                 <div>
                   <strong>Unusual sign-in detected</strong>
-                  <p>Example security event for the dashboard preview.</p>
+                  <p>
+                    Example security event for the dashboard preview.
+                  </p>
                   <span>Demo notification</span>
                 </div>
               </div>
+
               <div className="notification-item">
                 <div className="notification-item-icon success-icon">
                   <ShieldCheck size={16} />
                 </div>
+
                 <div>
                   <strong>Security checks active</strong>
-                  <p>Your local workspace is ready for setup.</p>
+                  <p>
+                    Your local workspace is ready for setup.
+                  </p>
                   <span>Demo notification</span>
                 </div>
               </div>
@@ -322,7 +408,13 @@ function Topbar({
         </div>
 
         <div className="topbar-divider" />
-        <button className="topbar-avatar" aria-label="Account">TK</button>
+
+        <button
+          className="topbar-avatar"
+          aria-label={`Account: ${displayName}`}
+        >
+          {initials}
+        </button>
       </div>
     </header>
   )
@@ -347,21 +439,34 @@ function MetricCard({
     <article className="metric-card">
       <div className="metric-card-top">
         <span className="metric-label">{label}</span>
+
         <span className={`metric-icon metric-${tone}`}>
           <Icon size={18} strokeWidth={1.9} />
         </span>
       </div>
-      <div className="metric-value">{value}</div>
+
+      <div className="metric-value">
+        {value}
+      </div>
+
       <div className="metric-footer">
-        <span className={`metric-trend ${trend === 'down' ? 'trend-down' : ''}`}>
+        <span
+          className={`metric-trend ${
+            trend === 'down' ? 'trend-down' : ''
+          }`}
+        >
           {trend === 'down' ? (
             <ArrowDownRight size={14} />
           ) : (
             <ArrowUpRight size={14} />
           )}
+
           {detail}
         </span>
-        <span className="metric-period">vs. last 30 days</span>
+
+        <span className="metric-period">
+          vs. last 30 days
+        </span>
       </div>
     </article>
   )
@@ -375,7 +480,10 @@ function SecurityScore() {
           <p className="eyebrow">YOUR SECURITY</p>
           <h2>Security posture</h2>
         </div>
-        <span className="demo-tag">DEMO DATA</span>
+
+        <span className="demo-tag">
+          DEMO DATA
+        </span>
       </div>
 
       <div className="score-content">
@@ -393,6 +501,7 @@ function SecurityScore() {
               stroke="rgba(255,255,255,0.07)"
               strokeWidth="9"
             />
+
             <circle
               cx="80"
               cy="80"
@@ -405,6 +514,7 @@ function SecurityScore() {
               transform="rotate(-90 80 80)"
             />
           </svg>
+
           <div className="score-number">
             <strong>82</strong>
             <span>OUT OF 100</span>
@@ -416,11 +526,14 @@ function SecurityScore() {
             <span className="score-status-dot" />
             Good standing
           </div>
+
           <h3>Your security foundation looks strong.</h3>
+
           <p>
             This is a sample score for the interface preview. It will be
             calculated from real security signals once monitoring is connected.
           </p>
+
           <button
             className="text-action"
             onClick={() => window.location.assign('/reports')}
@@ -433,17 +546,25 @@ function SecurityScore() {
       <div className="score-breakdown">
         <div className="breakdown-item">
           <span>Identity protection</span>
-          <div className="breakdown-track"><span style={{ width: '90%' }} /></div>
+          <div className="breakdown-track">
+            <span style={{ width: '90%' }} />
+          </div>
           <strong>90%</strong>
         </div>
+
         <div className="breakdown-item">
           <span>Account security</span>
-          <div className="breakdown-track"><span style={{ width: '76%' }} /></div>
+          <div className="breakdown-track">
+            <span style={{ width: '76%' }} />
+          </div>
           <strong>76%</strong>
         </div>
+
         <div className="breakdown-item">
           <span>Threat awareness</span>
-          <div className="breakdown-track"><span style={{ width: '80%' }} /></div>
+          <div className="breakdown-track">
+            <span style={{ width: '80%' }} />
+          </div>
           <strong>80%</strong>
         </div>
       </div>
@@ -486,6 +607,7 @@ function ActivityPanel() {
           <p className="eyebrow">WHAT'S HAPPENING</p>
           <h2>Recent activity</h2>
         </div>
+
         <span className="demo-tag">DEMO DATA</span>
       </div>
 
@@ -498,12 +620,18 @@ function ActivityPanel() {
               <div className={`activity-icon ${event.tone}`}>
                 <Icon size={17} />
               </div>
+
               <div className="activity-copy">
                 <strong>{event.title}</strong>
                 <p>{event.description}</p>
                 <span>{event.time}</span>
               </div>
-              <span className={`activity-status ${index === 2 ? 'activity-demo' : ''}`}>
+
+              <span
+                className={`activity-status ${
+                  index === 2 ? 'activity-demo' : ''
+                }`}
+              >
                 {event.status}
               </span>
             </div>
@@ -536,6 +664,7 @@ function SetupPanel() {
           <p className="eyebrow">GETTING STARTED</p>
           <h2>Secure your creator identity</h2>
         </div>
+
         <span className="setup-count">1 of 4</span>
       </div>
 
@@ -550,14 +679,25 @@ function SetupPanel() {
       <div className="setup-steps">
         {steps.map((step, index) => (
           <div
-            className={`setup-step ${step.complete ? 'step-complete' : ''}`}
+            className={`setup-step ${
+              step.complete ? 'step-complete' : ''
+            }`}
             key={step.label}
           >
             <span className="step-indicator">
-              {step.complete ? <ShieldCheck size={15} /> : index + 1}
+              {step.complete ? (
+                <ShieldCheck size={15} />
+              ) : (
+                index + 1
+              )}
             </span>
+
             <span>{step.label}</span>
-            {step.complete && <span className="step-done">DONE</span>}
+
+            {step.complete && (
+              <span className="step-done">DONE</span>
+            )}
+
             {!step.complete && index === 1 && (
               <span className="step-next">NEXT</span>
             )}
@@ -574,7 +714,22 @@ function SetupPanel() {
     </section>
   )
 }
+
 function Dashboard() {
+  const { user } = useAuth()
+
+  const hour = new Date().getHours()
+
+  const greeting =
+    hour < 12
+      ? 'Good morning'
+      : hour < 17
+        ? 'Good afternoon'
+        : 'Good evening'
+
+  const firstName =
+    user?.full_name?.trim().split(/\s+/)[0] || 'there'
+
   return (
     <div className="page-content">
       <div className="page-heading">
@@ -583,14 +738,17 @@ function Dashboard() {
             <span className="kicker-line" />
             CREATORXDR WORKSPACE
           </div>
+
           <h1>
-            Good evening, Tanishq
+            {greeting}, {firstName}
             <span className="heading-period">.</span>
           </h1>
+
           <p className="page-subtitle">
             Here's the current overview of your creator security workspace.
           </p>
         </div>
+
         <div className="heading-actions">
           <span className="workspace-badge">
             <span className="status-dot" />
@@ -603,11 +761,13 @@ function Dashboard() {
         <div className="demo-notice-icon">
           <Activity size={17} />
         </div>
+
         <p>
           <strong>Preview environment</strong>
           Dashboard metrics and activity below are illustrative. Live monitoring
           data will appear after the relevant services are integrated.
         </p>
+
         <span>DEMO</span>
       </div>
 
@@ -620,6 +780,7 @@ function Dashboard() {
           tone="green"
           trend="up"
         />
+
         <MetricCard
           label="Connected accounts"
           value="0"
@@ -627,6 +788,7 @@ function Dashboard() {
           icon={Users}
           tone="blue"
         />
+
         <MetricCard
           label="Threat alerts"
           value="02"
@@ -635,6 +797,7 @@ function Dashboard() {
           tone="amber"
           trend="down"
         />
+
         <MetricCard
           label="Identity status"
           value="Pending"
@@ -658,6 +821,7 @@ function Dashboard() {
               <p className="eyebrow">PROTECTION CENTER</p>
               <h2>Your security toolkit</h2>
             </div>
+
             <Shield size={19} className="muted-icon" />
           </div>
 
@@ -666,10 +830,12 @@ function Dashboard() {
               <div className="toolkit-icon toolkit-blue">
                 <ScanSearch size={17} />
               </div>
+
               <div>
                 <strong>Phishing analysis</strong>
                 <span>Inspect suspicious links</span>
               </div>
+
               <span className="toolkit-state">AVAILABLE</span>
             </div>
 
@@ -677,10 +843,12 @@ function Dashboard() {
               <div className="toolkit-icon toolkit-violet">
                 <Fingerprint size={17} />
               </div>
+
               <div>
                 <strong>Identity verification</strong>
                 <span>Establish your creator identity</span>
               </div>
+
               <span className="toolkit-state">SETUP</span>
             </div>
 
@@ -688,10 +856,12 @@ function Dashboard() {
               <div className="toolkit-icon toolkit-amber">
                 <Users size={17} />
               </div>
+
               <div>
                 <strong>Impersonation reports</strong>
                 <span>Review suspicious profiles</span>
               </div>
+
               <span className="toolkit-state">SETUP</span>
             </div>
           </div>
@@ -708,6 +878,7 @@ function Dashboard() {
           CREATORXDR <span className="footer-dot">•</span> CREATOR SECURITY
           PLATFORM
         </span>
+
         <span>
           LOCAL DEVELOPMENT BUILD{' '}
           <span className="footer-version">v0.1.0</span>
@@ -726,10 +897,12 @@ function PlaceholderPage({ title }: { title: string }) {
             <span className="kicker-line" />
             CREATORXDR WORKSPACE
           </div>
+
           <h1>
             {title}
             <span className="heading-period">.</span>
           </h1>
+
           <p className="page-subtitle">
             This section is part of the CreatorXDR workspace.
           </p>
@@ -740,8 +913,11 @@ function PlaceholderPage({ title }: { title: string }) {
         <div className="placeholder-icon">
           <Blocks size={24} />
         </div>
+
         <span className="demo-tag">IN DEVELOPMENT</span>
+
         <h2>{title} is being built.</h2>
+
         <p>
           This section will be connected to the backend services as development
           progresses. No simulated security actions are being performed here.
@@ -751,14 +927,174 @@ function PlaceholderPage({ title }: { title: string }) {
   )
 }
 
+function CompleteProfile() {
+  const { updateProfile, logout } = useAuth()
+
+  const [fullName, setFullName] = useState('')
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+
+    const name = fullName.trim()
+
+    if (!name) {
+      setError('Please enter your full name.')
+      return
+    }
+
+    if (name.length > 120) {
+      setError('Your name must be 120 characters or fewer.')
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError('')
+
+      await updateProfile(name)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to update your profile. Please try again.',
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <main
+        className="main-area"
+        style={{
+          minHeight: '100vh',
+          display: 'grid',
+          placeItems: 'center',
+          padding: '24px',
+        }}
+      >
+        <section
+          className="panel"
+          style={{
+            width: '100%',
+            maxWidth: '460px',
+            padding: '32px',
+          }}
+        >
+          <div
+            className="brand-mark"
+            style={{ marginBottom: '24px' }}
+          >
+            <ShieldCheck size={22} />
+          </div>
+
+          <p className="eyebrow">
+            COMPLETE YOUR PROFILE
+          </p>
+
+          <h1 style={{ marginBottom: '12px' }}>
+            What should we call you?
+          </h1>
+
+          <p
+            className="page-subtitle"
+            style={{ marginBottom: '24px' }}
+          >
+            Add your name to personalize your CreatorXDR workspace.
+          </p>
+
+          <form onSubmit={handleSubmit}>
+            <label
+              htmlFor="profile-full-name"
+              style={{
+                display: 'block',
+                marginBottom: '8px',
+              }}
+            >
+              Full name
+            </label>
+
+            <input
+              id="profile-full-name"
+              type="text"
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+              placeholder="Enter your full name"
+              autoComplete="name"
+              maxLength={120}
+              required
+              style={{
+                width: '100%',
+                padding: '13px',
+                marginBottom: '16px',
+                borderRadius: '8px',
+                border: '1px solid #d2d2d7',
+                font: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            />
+
+            {error && (
+              <p
+                role="alert"
+                style={{
+                  color: '#c62828',
+                  marginBottom: '16px',
+                }}
+              >
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={saving}
+              style={{
+                width: '100%',
+                justifyContent: 'center',
+              }}
+            >
+              {saving ? 'Saving...' : 'Save and continue'}
+              <ArrowRight size={16} />
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={logout}
+            className="text-action"
+            style={{ marginTop: '20px' }}
+          >
+            Log out
+          </button>
+        </section>
+      </main>
+    </div>
+  )
+}
+
 function WorkspaceLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
+
   const location = useLocation()
+
   const { user } = useAuth()
 
   const currentPage =
-    navigation.find((item) => item.path === location.pathname)?.label ??
-    (location.pathname === '/settings' ? 'Settings' : 'Workspace')
+    navigation.find(
+      (item) => item.path === location.pathname,
+    )?.label ??
+    (location.pathname === '/settings'
+      ? 'Settings'
+      : 'Workspace')
+
+  if (user && !user.full_name?.trim()) {
+    return <CompleteProfile />
+  }
 
   return (
     <div className="app-shell">
@@ -768,44 +1104,83 @@ function WorkspaceLayout() {
       />
 
       <main className="main-area">
-        <Topbar onMenuClick={() => setMobileOpen(true)} />
+        <Topbar
+          onMenuClick={() => setMobileOpen(true)}
+        />
 
         <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/identity" element={<IdentityPage />} />
+          <Route
+            path="/"
+            element={<Dashboard />}
+          />
+
+          <Route
+            path="/identity"
+            element={<IdentityPage />}
+          />
+
           <Route
             path="/admin/verification"
             element={
-              user?.role === 'ADMIN' ? (
+              user?.role?.toUpperCase() === 'ADMIN' ? (
                 <AdminVerificationPage />
               ) : (
                 <PlaceholderPage title="Access denied" />
               )
             }
           />
+
+          <Route
+            path="/admin/blockchain"
+            element={
+              user?.role?.toUpperCase() === 'ADMIN' ? (
+                <AdminBlockchainPage />
+              ) : (
+                <PlaceholderPage title="Access denied" />
+              )
+            }
+          />
+
           <Route
             path="/accounts"
-            element={<PlaceholderPage title="Connected accounts" />}
+            element={
+              <PlaceholderPage title="Connected accounts" />
+            }
           />
+
           <Route
             path="/threats"
-            element={<PlaceholderPage title="Threat monitoring" />}
+            element={
+              <PlaceholderPage title="Threat monitoring" />
+            }
           />
+
           <Route
             path="/reports"
-            element={<PlaceholderPage title="Security reports" />}
+            element={
+              <PlaceholderPage title="Security reports" />
+            }
           />
+
           <Route
             path="/audit"
-            element={<PlaceholderPage title="Audit trail" />}
+            element={
+              <PlaceholderPage title="Audit trail" />
+            }
           />
+
           <Route
             path="/settings"
-            element={<PlaceholderPage title="Settings" />}
+            element={
+              <PlaceholderPage title="Settings" />
+            }
           />
+
           <Route
             path="*"
-            element={<PlaceholderPage title={currentPage} />}
+            element={
+              <PlaceholderPage title={currentPage} />
+            }
           />
         </Routes>
       </main>

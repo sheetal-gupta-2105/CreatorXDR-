@@ -27,11 +27,24 @@ def register():
     data = request.get_json(silent=True) or {}
 
     email = str(data.get("email", "")).strip().lower()
+    full_name = data.get("full_name")
     password = data.get("password", "")
 
     if not email or "@" not in email or len(email) > 255:
         return jsonify({
             "error": "A valid email address is required."
+        }), 400
+
+    if not isinstance(full_name, str):
+        return jsonify({
+            "error": "Full name is required."
+        }), 400
+
+    full_name = full_name.strip()
+
+    if not full_name or len(full_name) > 120:
+        return jsonify({
+            "error": "Full name must contain 1 to 120 characters."
         }), 400
 
     if not isinstance(password, str) or len(password) < 12:
@@ -46,6 +59,7 @@ def register():
 
     user = User(
         email=email,
+        full_name=full_name,
         password_hash=hash_password(password),
         role="CREATOR",
         email_verified=False,
@@ -193,6 +207,7 @@ def login():
         "user": {
             "id": user.id,
             "email": user.email,
+            "full_name": user.full_name,
             "role": user.role,
         },
     }), 200
@@ -238,6 +253,57 @@ def get_current_user():
     return jsonify({
         "id": user.id,
         "email": user.email,
+        "full_name": user.full_name,
         "role": user.role,
         "email_verified": user.email_verified,
+    }), 200
+
+
+@auth_bp.patch("/profile")
+@jwt_required()
+def update_profile():
+    user_id = get_jwt_identity()
+    user = db.session.get(User, user_id)
+
+    if not user or user.account_status != "ACTIVE":
+        return jsonify({
+            "error": "Account is unavailable."
+        }), 401
+
+    data = request.get_json(silent=True) or {}
+    full_name = data.get("full_name")
+
+    if not isinstance(full_name, str):
+        return jsonify({
+            "error": "Full name is required."
+        }), 400
+
+    full_name = full_name.strip()
+
+    if not full_name or len(full_name) > 120:
+        return jsonify({
+            "error": "Full name must contain 1 to 120 characters."
+        }), 400
+
+    try:
+        user.full_name = full_name
+        db.session.commit()
+
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Profile update failed")
+
+        return jsonify({
+            "error": "Profile could not be updated."
+        }), 500
+
+    return jsonify({
+        "message": "Profile updated successfully.",
+        "user": {
+            "id": user.id,
+            "email": user.email,
+            "full_name": user.full_name,
+            "role": user.role,
+            "email_verified": user.email_verified,
+        },
     }), 200

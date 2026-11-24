@@ -1,3 +1,4 @@
+
 services:
   db:
     image: postgres:16-alpine
@@ -5,15 +6,22 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-creatorxdr}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-creatorxdr}
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
-      interval: 5s
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 10s
+
+
 
   backend:
     build:
@@ -27,7 +35,8 @@ services:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-creatorxdr}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-creatorxdr}
       FRONTEND_ORIGIN: http://localhost:5173
       IDENTITY_STORAGE_PATH: /app/storage/identity_documents
-      FLASK_DEBUG: "false"
+      FLASK_DEBUG: "true"
+      AUTH_DEBUG_OTP: "true"
     ports:
       - "127.0.0.1:5001:5001"
     volumes:
@@ -40,27 +49,31 @@ services:
         - CMD
         - python
         - -c
-        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/api/health', timeout=4)"
-      interval: 10s
+        - "import socket; s=socket.create_connection(('127.0.0.1', 5001), timeout=3); s.close()"
+      interval: 15s
       timeout: 5s
       retries: 5
-      start_period: 25s
+      start_period: 30s
+
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: http://localhost:5001/api
     container_name: creatorxdr-frontend
     restart: unless-stopped
     ports:
-      - "127.0.0.1:5173:80"
+      - "5173:80"
     depends_on:
       backend:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1/health"]
+      test:
+        - CMD
+        - wget
+        - -q
+        - --spider
+        - http://127.0.0.1/health
       interval: 10s
       timeout: 5s
       retries: 5

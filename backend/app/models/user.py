@@ -8,6 +8,7 @@ def utc_now():
     return datetime.now(timezone.utc)
 
 
+
 class User(db.Model):
     __tablename__ = "users"
 
@@ -22,6 +23,10 @@ class User(db.Model):
         unique=True,
         nullable=False,
         index=True,
+    )
+    full_name = db.Column(
+        db.String(120),
+        nullable=True,
     )
 
     password_hash = db.Column(
