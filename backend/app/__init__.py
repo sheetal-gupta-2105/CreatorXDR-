@@ -27,6 +27,7 @@ from app.routes import (
     auth_bp,
     verification_bp,
     admin_verification_bp,
+    admin_blockchain_bp,
 )
 
 from app.services.auth_service import hash_password
@@ -46,10 +47,12 @@ def create_app(test_config=None):
     if not app.config.get("JWT_SECRET_KEY"):
         raise RuntimeError("JWT_SECRET_KEY is not configured")
 
+    # Initialize extensions
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
 
+    # Configure CORS
     CORS(
         app,
         resources={
@@ -60,26 +63,37 @@ def create_app(test_config=None):
         supports_credentials=True,
     )
 
+    # Register health routes
     app.register_blueprint(
         health_bp,
         url_prefix="/api",
     )
 
+    # Register authentication routes
     app.register_blueprint(
         auth_bp,
         url_prefix="/api/auth",
     )
 
+    # Register identity verification routes
     app.register_blueprint(
         verification_bp,
         url_prefix="/api/verification",
     )
 
+    # Register administrator verification routes
     app.register_blueprint(
         admin_verification_bp,
         url_prefix="/api/admin/verification",
     )
 
+    # Register administrator blockchain routes
+    app.register_blueprint(
+        admin_blockchain_bp,
+        url_prefix="/api/admin/blockchain",
+    )
+
+    # Secure administrator creation command
     @app.cli.command("create-admin")
     def create_admin():
         """Create an administrator account securely."""
@@ -140,6 +154,7 @@ def create_app(test_config=None):
             f"Administrator account created for {email}."
         )
 
+    # Handle oversized document uploads
     @app.errorhandler(RequestEntityTooLarge)
     def handle_large_upload(error):
         return jsonify({

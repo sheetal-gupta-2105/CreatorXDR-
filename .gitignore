@@ -41,3 +41,8 @@ backend/storage/
 
 # Uploaded identity documents
 backend/storage/
+# Local test data
+creatorxdr_test.png
+
+# Hardhat local deployment records
+blockchain/ignition/deployments/

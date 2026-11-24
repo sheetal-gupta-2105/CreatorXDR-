@@ -19,6 +19,22 @@ class Config:
         "pool_pre_ping": True,
         "pool_recycle": 300,
     }
+    BLOCKCHAIN_RPC_URL = os.getenv(
+        "BLOCKCHAIN_RPC_URL",
+        "http://host.docker.internal:8545",
+    )
+
+    BLOCKCHAIN_PRIVATE_KEY = os.getenv(
+        "BLOCKCHAIN_PRIVATE_KEY",
+    )
+
+    BLOCKCHAIN_CONTRACT_ADDRESS = os.getenv(
+        "BLOCKCHAIN_CONTRACT_ADDRESS",
+    )
+
+    BLOCKCHAIN_CHAIN_ID = int(
+        os.getenv("BLOCKCHAIN_CHAIN_ID", "31337")
+    )
 
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(minutes=15)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
