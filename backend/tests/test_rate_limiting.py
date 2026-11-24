@@ -12,6 +12,7 @@ def rate_limited_app():
         "RATELIMIT_ENABLED": True,
         "RATELIMIT_STORAGE_URI": "memory://",
         "RATELIMIT_STRATEGY": "moving-window",
+        "REDIS_URL": "",
         "RATELIMIT_REGISTER": "2 per minute",
         "RATELIMIT_LOGIN_IP": "3 per minute",
         "RATELIMIT_LOGIN_ACCOUNT": "2 per minute",
@@ -211,6 +212,7 @@ def test_email_key_normalization_and_malformed_json(rate_limited_app):
 
 def test_upload_per_user_rate_limit(rate_limited_app):
     """Confirm document upload limit is keyed per JWT user ID and falls back to IP."""
+    from types import SimpleNamespace
     from flask_jwt_extended import create_access_token
 
     client = rate_limited_app.test_client()
@@ -219,7 +221,17 @@ def test_upload_per_user_rate_limit(rate_limited_app):
         token_user_1 = create_access_token(identity="user-1", additional_claims={"role": "CREATOR"})
         token_user_2 = create_access_token(identity="user-2", additional_claims={"role": "CREATOR"})
 
-        with patch("app.routes.verification.db.session.get", return_value=None):
+        def _fake_get(_model, ident):
+            return SimpleNamespace(
+                id=ident,
+                account_status="ACTIVE",
+                email_verified=False,
+                tokens_valid_after=None,
+                role="CREATOR",
+            )
+
+        with patch("app.db.session.get", side_effect=_fake_get), \
+             patch("app.routes.verification.db.session.get", side_effect=_fake_get):
             # User 1 makes 2 requests from different IPs (hits user limit of 2 per minute; IP limit is 2 per IP)
             for idx in range(2):
                 resp = client.post(
@@ -227,7 +239,7 @@ def test_upload_per_user_rate_limit(rate_limited_app):
                     headers={"Authorization": f"Bearer {token_user_1}"},
                     environ_base={"REMOTE_ADDR": f"198.51.100.{20 + idx}"},
                 )
-                assert resp.status_code == 401
+                assert resp.status_code == 403
 
             # User 1's 3rd request from a fresh IP is rate-limited by user ID
             resp_u1_blocked = client.post(
@@ -243,7 +255,7 @@ def test_upload_per_user_rate_limit(rate_limited_app):
                 headers={"Authorization": f"Bearer {token_user_2}"},
                 environ_base={"REMOTE_ADDR": "198.51.100.20"},
             )
-            assert resp_u2.status_code == 401
+            assert resp_u2.status_code == 403
 
 
 def test_429_logging_excludes_pii(rate_limited_app, caplog):

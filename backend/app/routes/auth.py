@@ -1,10 +1,11 @@
 
 import logging
+import time
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import (
-    create_access_token,
-    create_refresh_token,
+    decode_token,
+    get_jwt,
     get_jwt_identity,
     jwt_required,
 )
@@ -14,12 +15,24 @@ from app.extensions.limiter import get_email_or_ip, is_401_response
 from app.models.user import User, EmailVerification
 
 from app.services.auth_service import (
-    hash_password,
-    verify_password,
+    check_otp_resend_allowed,
+    consume_password_reset_token,
+    create_password_reset_token,
     create_verification_challenge,
+    hash_password,
+    issue_token_pair,
+    revoke_access_jti,
+    revoke_refresh_family,
+    rotate_refresh_token,
+    verify_dummy_password,
     verify_email_code,
+    verify_password,
 )
-from app.services.email import send_verification_email
+from app.services.email import (
+    send_password_changed_email,
+    send_password_reset_email,
+    send_verification_email,
+)
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -175,6 +188,128 @@ def verify_email():
     }), 200
 
 
+@auth_bp.post("/resend-otp")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_RESEND_OTP", "5 per hour"), key_func=get_email_or_ip)
+def resend_otp():
+
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+
+    if not email or "@" not in email or len(email) > 255:
+        return jsonify({
+            "error": "A valid email address is required."
+        }), 400
+
+    generic_response = {
+        "message": "If an unverified account exists for that email, a new verification code has been sent."
+    }
+
+    user = User.query.filter_by(email=email).first()
+    if user and user.account_status == "ACTIVE" and not user.email_verified:
+        cooldown = current_app.config.get("AUTH_OTP_COOLDOWN_SECONDS", 60)
+        max_per_hour = current_app.config.get("AUTH_OTP_MAX_PER_HOUR", 5)
+
+        if check_otp_resend_allowed(user, cooldown_seconds=cooldown, max_per_hour=max_per_hour):
+            try:
+                code = create_verification_challenge(user)
+                send_verification_email(
+                    to_email=user.email,
+                    user_name=user.full_name,
+                    otp_code=code,
+                )
+            except Exception:
+                db.session.rollback()
+                current_app.logger.exception("Failed to resend verification OTP")
+
+    return jsonify(generic_response), 200
+
+
+@auth_bp.post("/forgot-password")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_FORGOT_PASSWORD", "3 per hour"), key_func=get_email_or_ip)
+def forgot_password():
+
+    start_time = time.monotonic()
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email", "")).strip().lower()
+
+    if not email or "@" not in email or len(email) > 255:
+        return jsonify({
+            "error": "A valid email address is required."
+        }), 400
+
+    generic_response = {
+        "message": "If an account exists for that email, a password reset link has been sent."
+    }
+
+    user = User.query.filter_by(email=email).first()
+    if user and user.account_status == "ACTIVE":
+        try:
+            raw_token = create_password_reset_token(user, expiry_minutes=15)
+            frontend_base = current_app.config.get(
+                "FRONTEND_BASE_URL",
+                current_app.config.get("FRONTEND_ORIGIN", "http://localhost:5173"),
+            ).rstrip("/")
+            reset_url = f"{frontend_base}/reset-password?token={raw_token}"
+            send_password_reset_email(
+                to_email=user.email,
+                user_name=user.full_name,
+                reset_url=reset_url,
+            )
+        except Exception:
+            db.session.rollback()
+            current_app.logger.exception("Failed to dispatch password reset email")
+
+    # Equalize response timing across existing and missing accounts.
+    elapsed = time.monotonic() - start_time
+    if elapsed < 0.05:
+        time.sleep(0.05 - elapsed)
+
+    return jsonify(generic_response), 200
+
+
+@auth_bp.post("/reset-password")
+@limiter.limit(lambda: current_app.config.get("RATELIMIT_RESET_PASSWORD", "5 per hour"))
+def reset_password():
+
+    data = request.get_json(silent=True) or {}
+    raw_token = data.get("token", "")
+    new_password = data["new_password"] if "new_password" in data else data.get("password", "")
+
+    if not isinstance(raw_token, str) or not raw_token.strip():
+        return jsonify({
+            "error": "A valid reset token is required."
+        }), 400
+
+    if not isinstance(new_password, str) or len(new_password) < 12:
+        return jsonify({
+            "error": "Password must contain at least 12 characters."
+        }), 400
+
+    try:
+        success, user, error = consume_password_reset_token(raw_token.strip(), new_password)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Password reset failed")
+        return jsonify({
+            "error": "Password reset could not be completed."
+        }), 500
+
+    if not success:
+        return jsonify({"error": error}), 400
+
+    try:
+        send_password_changed_email(
+            to_email=user.email,
+            user_name=user.full_name,
+        )
+    except Exception:
+        current_app.logger.exception("Failed to dispatch password changed email")
+
+    return jsonify({
+        "message": "Password reset successfully. Please sign in with your new password."
+    }), 200
+
+
 @auth_bp.post("/login")
 @limiter.limit(lambda: current_app.config.get("RATELIMIT_LOGIN_IP", "10 per minute; 30 per hour"))
 @limiter.limit(
@@ -190,15 +325,20 @@ def login():
     password = data.get("password", "")
 
     if not email or not isinstance(password, str):
+        verify_dummy_password(password if isinstance(password, str) else "")
         return jsonify({
             "error": "Invalid email or password."
         }), 401
 
     user = User.query.filter_by(email=email).first()
 
-    if not user or not verify_password(
-        user.password_hash, password
-    ):
+    if not user:
+        verify_dummy_password(password)
+        return jsonify({
+            "error": "Invalid email or password."
+        }), 401
+
+    if not verify_password(user.password_hash, password):
         return jsonify({
             "error": "Invalid email or password."
         }), 401
@@ -213,17 +353,14 @@ def login():
             "error": "Email verification required."
         }), 403
 
-    identity = str(user.id)
-
-    access_token = create_access_token(
-        identity=identity,
-        additional_claims={"role": user.role},
-    )
-
-    refresh_token = create_refresh_token(
-        identity=identity,
-        additional_claims={"role": user.role},
-    )
+    try:
+        access_token, refresh_token, _ = issue_token_pair(user)
+    except Exception:
+        db.session.rollback()
+        current_app.logger.exception("Failed to issue session tokens")
+        return jsonify({
+            "error": "Login could not be completed."
+        }), 500
 
     return jsonify({
         "message": "Login successful.",
@@ -243,26 +380,49 @@ def login():
 @jwt_required(refresh=True)
 def refresh():
 
-    user_id = get_jwt_identity()
-    user = db.session.get(User, user_id)
+    jwt_data = get_jwt()
+    jti = jwt_data.get("jti")
 
-    if not user or user.account_status != "ACTIVE":
+    if not jti:
         return jsonify({
-            "error": "Account is unavailable."
+            "error": "Invalid refresh token."
         }), 401
 
-    if not user.email_verified:
-        return jsonify({
-            "error": "Email verification required."
-        }), 403
-
-    access_token = create_access_token(
-        identity=str(user.id),
-        additional_claims={"role": user.role},
-    )
+    success, access_token, refresh_token, error, status_code = rotate_refresh_token(jti)
+    if not success:
+        return jsonify({"error": error}), status_code
 
     return jsonify({
         "access_token": access_token,
+        "refresh_token": refresh_token,
+    }), 200
+
+
+@auth_bp.post("/logout")
+@jwt_required()
+def logout():
+
+    jwt_data = get_jwt()
+    user_id = get_jwt_identity()
+    access_jti = jwt_data.get("jti")
+
+    if access_jti:
+        revoke_access_jti(access_jti, jwt_data.get("exp"))
+
+    data = request.get_json(silent=True) or {}
+    raw_refresh = data.get("refresh_token")
+    if isinstance(raw_refresh, str) and raw_refresh.strip():
+        try:
+            decoded_refresh = decode_token(raw_refresh.strip())
+            if decoded_refresh.get("sub") == user_id:
+                family_id = decoded_refresh.get("family_id")
+                if family_id:
+                    revoke_refresh_family(family_id)
+        except Exception:
+            pass
+
+    return jsonify({
+        "message": "Logged out successfully."
     }), 200
 
 

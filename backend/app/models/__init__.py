@@ -1,5 +1,5 @@
 
-from app.models.user import User, EmailVerification
+from app.models.user import User, EmailVerification, PasswordResetToken, RefreshToken
 from app.models.merkle_batch import MerkleBatch, MerkleBatchLeaf
 from app.models.verification import (
     VerificationSubmission,
@@ -13,6 +13,8 @@ from app.models.admin_audit import AdminAuditLog
 __all__ = [
     "User",
     "EmailVerification",
+    "PasswordResetToken",
+    "RefreshToken",
     "VerificationSubmission",
     "VerificationReview",
     "IdentityFingerprint",

@@ -129,6 +129,19 @@ def send_password_reset_email(to_email: str, user_name: str, reset_url: str, asy
     )
 
 
+def send_password_changed_email(to_email: str, user_name: str, async_send: bool = True) -> bool:
+    """Dispatches notification that the account password was changed."""
+    return send_templated_email(
+        to_email=to_email,
+        subject="CreatorXDR - Your Password Was Changed",
+        template_prefix="password_changed",
+        context={
+            "user_name": user_name,
+        },
+        async_send=async_send,
+    )
+
+
 def send_review_decision_email(
     to_email: str,
     user_name: str,

@@ -32,7 +32,11 @@ from app.routes import (
     admin_blockchain_bp,
 )
 
-from app.services.auth_service import hash_password
+from app.services.auth_service import (
+    _ensure_utc,
+    hash_password,
+    is_access_jti_revoked,
+)
 
 
 def create_app(test_config=None):
@@ -64,6 +68,46 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+
+    @jwt.token_in_blocklist_loader
+    def check_if_token_revoked(_jwt_header, jwt_payload):
+        jti = jwt_payload.get("jti")
+        token_type = jwt_payload.get("type")
+
+        if token_type == "access" and jti and is_access_jti_revoked(jti):
+            return True
+
+        user_id = jwt_payload.get("sub")
+        if user_id:
+            user = db.session.get(User, user_id)
+            if user and user.tokens_valid_after:
+                valid_after = _ensure_utc(user.tokens_valid_after)
+                issued_at_ms = jwt_payload.get("issued_at_ms")
+                if issued_at_ms is not None:
+                    if int(issued_at_ms) < int(valid_after.timestamp() * 1000):
+                        return True
+                else:
+                    iat = int(jwt_payload.get("iat", 0))
+                    if iat <= int(valid_after.timestamp()):
+                        return True
+
+        return False
+
+    @jwt.revoked_token_loader
+    def revoked_token_callback(_jwt_header, _jwt_payload):
+        return jsonify({"error": "Token has been revoked."}), 401
+
+    @jwt.user_lookup_loader
+    def user_lookup_callback(_jwt_header, jwt_data):
+        identity = jwt_data.get("sub")
+        user = db.session.get(User, identity)
+        if not user or user.account_status != "ACTIVE":
+            return None
+        return user
+
+    @jwt.user_lookup_error_loader
+    def user_lookup_error_callback(_jwt_header, _jwt_data):
+        return jsonify({"error": "Account is unavailable."}), 401
 
     # Configure ProxyFix if trusted proxies are present
     trusted_proxies = app.config.get("TRUSTED_PROXY_COUNT", 0)

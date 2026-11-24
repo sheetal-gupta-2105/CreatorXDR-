@@ -45,6 +45,17 @@ class Config:
         "FRONTEND_ORIGIN",
         "http://localhost:5173",
     )
+    FRONTEND_BASE_URL = os.getenv(
+        "FRONTEND_BASE_URL",
+        FRONTEND_ORIGIN,
+    )
+
+    AUTH_OTP_COOLDOWN_SECONDS = int(
+        os.getenv("AUTH_OTP_COOLDOWN_SECONDS", "60")
+    )
+    AUTH_OTP_MAX_PER_HOUR = int(
+        os.getenv("AUTH_OTP_MAX_PER_HOUR", "5")
+    )
 
     DEBUG = os.getenv("FLASK_DEBUG", "false").lower() in {
         "1", "true", "yes"
@@ -106,7 +117,7 @@ class Config:
     RATELIMIT_LOGIN_IP = os.getenv("RATELIMIT_LOGIN_IP", "10 per minute; 30 per hour")
     RATELIMIT_LOGIN_ACCOUNT = os.getenv("RATELIMIT_LOGIN_ACCOUNT", "5 per 15 minutes")
     RATELIMIT_VERIFY_EMAIL = os.getenv("RATELIMIT_VERIFY_EMAIL", "10 per 15 minutes")
-    RATELIMIT_RESEND_OTP = os.getenv("RATELIMIT_RESEND_OTP", "3 per hour")
+    RATELIMIT_RESEND_OTP = os.getenv("RATELIMIT_RESEND_OTP", "5 per hour")
     RATELIMIT_FORGOT_PASSWORD = os.getenv("RATELIMIT_FORGOT_PASSWORD", "3 per hour")
     RATELIMIT_RESET_PASSWORD = os.getenv("RATELIMIT_RESET_PASSWORD", "5 per hour")
     RATELIMIT_REFRESH_TOKEN = os.getenv("RATELIMIT_REFRESH_TOKEN", "30 per minute")
