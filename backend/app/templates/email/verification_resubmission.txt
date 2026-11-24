@@ -1,0 +1,18 @@
+{% extends "email/base.txt" %}
+
+{% block content %}
+Identity Resubmission Required
+
+Hello {{ user_name or 'there' }},
+
+Your identity verification submission for document type {{ document_type }} requires additional action: NEEDS RESUBMISSION.
+
+{% if reason_code %}
+Reason: {{ reason_code }}
+{% endif %}
+{% if reviewer_notes %}
+Reviewer instructions: {{ reviewer_notes }}
+{% endif %}
+
+Please log in to your CreatorXDR account to upload a clearer document or provide the requested details.
+{% endblock %}

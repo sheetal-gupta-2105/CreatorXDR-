@@ -26,6 +26,8 @@ from app.models.verification import (
 )
 from app.models.ocr_result import OCRResult
 from app.models.admin_audit import AdminAuditLog
+from app.services.email import send_review_decision_email
+
 
 
 admin_verification_bp = Blueprint(
@@ -523,6 +525,23 @@ def review_submission(submission_id):
 
         # Review and audit event are committed atomically.
         db.session.commit()
+
+        # Dispatch decision email notification asynchronously after successful commit
+        try:
+            send_review_decision_email(
+                to_email=submission.user.email,
+                user_name=submission.user.full_name,
+                document_type=submission.document_type,
+                decision=decision,
+                reason_code=reason_code or None,
+                reviewer_notes=reviewer_notes or None,
+            )
+        except Exception:
+            logger.exception(
+                "Failed to dispatch review notification email for submission %s",
+                submission.id,
+            )
+
 
         return jsonify({
             "message": "Review decision recorded.",

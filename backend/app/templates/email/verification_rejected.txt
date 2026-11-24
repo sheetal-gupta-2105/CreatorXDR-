@@ -1,0 +1,18 @@
+{% extends "email/base.txt" %}
+
+{% block content %}
+Identity Verification Update
+
+Hello {{ user_name or 'there' }},
+
+Your identity verification submission for document type {{ document_type }} has been reviewed and REJECTED.
+
+{% if reason_code %}
+Reason: {{ reason_code }}
+{% endif %}
+{% if reviewer_notes %}
+Reviewer remarks: {{ reviewer_notes }}
+{% endif %}
+
+If you believe this decision was made in error, please review our guidelines and submit a new request.
+{% endblock %}

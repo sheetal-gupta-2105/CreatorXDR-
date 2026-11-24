@@ -1,0 +1,10 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+<h2>Identity Verification Approved</h2>
+<p>Hello {{ user_name or 'there' }},</p>
+<p>Great news! Your identity verification submission for document type <strong>{{ document_type }}</strong> has been reviewed and <span class="badge badge-approved">APPROVED</span>.</p>
+
+<p>Your account now has full verified creator status on CreatorXDR.</p>
+<p class="note">You can view your status anytime by logging into your dashboard.</p>
+{% endblock %}

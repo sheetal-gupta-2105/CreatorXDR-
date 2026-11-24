@@ -1,0 +1,10 @@
+=======================================================
+CreatorXDR Security Notification
+=======================================================
+
+{% block content %}{% endblock %}
+
+-------------------------------------------------------
+This is an automated security notification from CreatorXDR.
+Do not reply to this email.
+(c) CreatorXDR Identity Protection Platform

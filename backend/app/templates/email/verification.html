@@ -1,0 +1,12 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+<h2>Verify Your Email Address</h2>
+<p>Hello {{ user_name or 'there' }},</p>
+<p>Thank you for registering with CreatorXDR. To complete your account registration and verify your email, please enter the following 6-digit verification code:</p>
+
+<div class="otp-code">{{ otp_code }}</div>
+
+<p>This code will expire in <strong>10 minutes</strong>. If you did not attempt to register on CreatorXDR, please disregard this email.</p>
+<p class="note">For security reasons, never share this code with anyone. CreatorXDR staff will never ask for your code.</p>
+{% endblock %}

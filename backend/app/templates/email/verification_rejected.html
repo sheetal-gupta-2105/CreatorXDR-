@@ -1,0 +1,17 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+<h2>Identity Verification Update</h2>
+<p>Hello {{ user_name or 'there' }},</p>
+<p>Your identity verification submission for document type <strong>{{ document_type }}</strong> has been reviewed and <span class="badge badge-rejected">REJECTED</span>.</p>
+
+{% if reason_code %}
+<p><strong>Reason:</strong> {{ reason_code }}</p>
+{% endif %}
+
+{% if reviewer_notes %}
+<p><strong>Reviewer remarks:</strong> {{ reviewer_notes }}</p>
+{% endif %}
+
+<p>If you believe this decision was made in error or wish to submit an alternative document, please review our verification guidelines and submit a new request.</p>
+{% endblock %}

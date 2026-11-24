@@ -1,0 +1,17 @@
+{% extends "email/base.html" %}
+
+{% block content %}
+<h2>Identity Resubmission Required</h2>
+<p>Hello {{ user_name or 'there' }},</p>
+<p>Your identity verification submission for document type <strong>{{ document_type }}</strong> requires additional action: <span class="badge badge-resubmit">NEEDS RESUBMISSION</span>.</p>
+
+{% if reason_code %}
+<p><strong>Reason:</strong> {{ reason_code }}</p>
+{% endif %}
+
+{% if reviewer_notes %}
+<p><strong>Reviewer instructions:</strong> {{ reviewer_notes }}</p>
+{% endif %}
+
+<p>Please log in to your CreatorXDR account to upload a clearer document or provide the requested details.</p>
+{% endblock %}

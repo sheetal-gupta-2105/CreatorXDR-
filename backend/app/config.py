@@ -67,3 +67,29 @@ class Config:
 
     MAX_DOCUMENT_SIZE = 5 * 1024 * 1024
     MAX_CONTENT_LENGTH = 6 * 1024 * 1024
+
+    REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
+
+    EMAIL_PROVIDER = os.getenv("EMAIL_PROVIDER", "console").lower()
+    EMAIL_SYNC_FALLBACK = os.getenv(
+        "EMAIL_SYNC_FALLBACK",
+        "true" if (os.getenv("FLASK_DEBUG", "false").lower() in {"1", "true", "yes"} or os.getenv("FLASK_ENV") == "development") else "false",
+    ).lower() in {"1", "true", "yes"}
+
+    EMAIL_FROM_ADDRESS = os.getenv(
+        "EMAIL_FROM_ADDRESS", "no-reply@creatorxdr.local"
+    )
+    EMAIL_FROM_NAME = os.getenv(
+        "EMAIL_FROM_NAME", "CreatorXDR Security"
+    )
+    SMTP_HOST = os.getenv("SMTP_HOST", "localhost")
+    SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+    SMTP_USER = os.getenv("SMTP_USER", "")
+    SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+    SMTP_USE_TLS = os.getenv("SMTP_USE_TLS", "true").lower() in {
+        "1", "true", "yes"
+    }
+    SMTP_USE_SSL = os.getenv("SMTP_USE_SSL", "false").lower() in {
+        "1", "true", "yes"
+    }
+

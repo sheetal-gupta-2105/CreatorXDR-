@@ -17,6 +17,8 @@ from app.services.auth_service import (
     create_verification_challenge,
     verify_email_code,
 )
+from app.services.email import send_verification_email
+
 
 auth_bp = Blueprint("auth", __name__)
 logger = logging.getLogger(__name__)
@@ -89,6 +91,16 @@ def register():
         current_app.logger.warning(
             "============================================="
         )
+
+    try:
+        send_verification_email(
+            to_email=user.email,
+            user_name=user.full_name,
+            otp_code=code,
+        )
+    except Exception:
+        current_app.logger.exception("Failed to dispatch verification email")
+
 
     return jsonify({
         "message": "Registration successful. Verify your email.",

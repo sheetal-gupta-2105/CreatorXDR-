@@ -47,7 +47,17 @@ def create_app(test_config=None):
     if not app.config.get("JWT_SECRET_KEY"):
         raise RuntimeError("JWT_SECRET_KEY is not configured")
 
+    # Warn loudly if EMAIL_PROVIDER is console in a production environment
+    if not app.config.get("DEBUG") and not app.config.get("TESTING"):
+        if app.config.get("EMAIL_PROVIDER") == "console":
+            app.logger.warning(
+                "CRITICAL WARNING: EMAIL_PROVIDER is set to 'console' in a production environment. "
+                "Outgoing emails (verification OTPs, password resets, review decisions) will only be printed to server logs "
+                "and will not be delivered to users. Configure an SMTP or transactional email provider for production."
+            )
+
     # Initialize extensions
+
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)

@@ -1,0 +1,15 @@
+{% extends "email/base.txt" %}
+
+{% block content %}
+Verify Your Email Address
+
+Hello {{ user_name or 'there' }},
+
+Thank you for registering with CreatorXDR. To complete your account registration and verify your email, enter the following 6-digit verification code:
+
+{{ otp_code }}
+
+This code will expire in 10 minutes. If you did not attempt to register on CreatorXDR, please disregard this email.
+
+For security reasons, never share this code with anyone.
+{% endblock %}
