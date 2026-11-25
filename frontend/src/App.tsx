@@ -31,13 +31,14 @@ import {
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import {
-  BrowserRouter,
   NavLink,
   Route,
   Routes,
   useLocation,
 } from 'react-router-dom'
 import IdentityPage from './pages/IdentityPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import { useAuth } from './context/AuthContext'
 import './App.css'
 
@@ -1177,6 +1178,16 @@ function WorkspaceLayout() {
           />
 
           <Route
+            path="/forgot-password"
+            element={<ForgotPasswordPage />}
+          />
+
+          <Route
+            path="/reset-password"
+            element={<ResetPasswordPage />}
+          />
+
+          <Route
             path="*"
             element={
               <PlaceholderPage title={currentPage} />
@@ -1189,11 +1200,7 @@ function WorkspaceLayout() {
 }
 
 function App() {
-  return (
-    <BrowserRouter>
-      <WorkspaceLayout />
-    </BrowserRouter>
-  )
+  return <WorkspaceLayout />
 }
 
 export default App

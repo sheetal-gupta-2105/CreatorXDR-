@@ -1,6 +1,7 @@
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 
 import {
   ArrowRight,
@@ -13,7 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 
-import { ApiError } from '../services/api'
+import { ApiError, resendOtp } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import './Auth.css'
 
@@ -30,8 +31,20 @@ export default function AuthPage() {
 
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [resendLoading, setResendLoading] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+
+  useEffect(() => {
+    if (resendCooldown <= 0) {
+      return
+    }
+    const timer = window.setInterval(() => {
+      setResendCooldown((prev) => (prev <= 1 ? 0 : prev - 1))
+    }, 1000)
+    return () => window.clearInterval(timer)
+  }, [resendCooldown])
 
   function changeMode(nextMode: AuthMode) {
     setMode(nextMode)
@@ -40,6 +53,31 @@ export default function AuthPage() {
     setPassword('')
     setCode('')
     setFullName('')
+  }
+
+  async function handleResendOtp() {
+    if (resendCooldown > 0 || resendLoading || !email.trim()) {
+      return
+    }
+    setError('')
+    setNotice('')
+    setResendLoading(true)
+    try {
+      const result = await resendOtp(email.trim())
+      setNotice(
+        result.message ||
+          'If an unverified account exists for that email, a new verification code has been sent.',
+      )
+      setResendCooldown(60)
+    } catch (err) {
+      if (err instanceof ApiError) {
+        setError(err.message)
+      } else {
+        setError('Unable to resend verification code. Please try again.')
+      }
+    } finally {
+      setResendLoading(false)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -93,6 +131,7 @@ export default function AuthPage() {
         )
 
         setMode('verify')
+        setResendCooldown(60)
         setPassword('')
         setCode('')
       } else if (mode === 'verify') {
@@ -108,7 +147,19 @@ export default function AuthPage() {
       }
     } catch (err) {
       if (err instanceof ApiError) {
-        setError(err.message)
+        if (err.status === 403) {
+          if (err.message.toLowerCase().includes('verification')) {
+            setError(
+              'Email verification is required before signing in. Please verify your email.',
+            )
+          } else {
+            setError(
+              'Your account is suspended or locked. Please contact support.',
+            )
+          }
+        } else {
+          setError(err.message)
+        }
       } else {
         setError('Something went wrong. Please try again.')
       }
@@ -276,6 +327,14 @@ export default function AuthPage() {
                   better.
                 </p>
               )}
+
+              {!isRegisterMode && (
+                <div className="auth-forgot-row">
+                  <Link className="auth-forgot-link" to="/forgot-password">
+                    Forgot password?
+                  </Link>
+                </div>
+              )}
             </>
           )}
 
@@ -304,10 +363,23 @@ export default function AuthPage() {
                 />
               </div>
 
-              <p className="auth-field-hint">
-                The code is valid for a limited time. Do not share it with
-                anyone.
-              </p>
+              <div className="auth-resend-row">
+                <p className="auth-field-hint">
+                  Code expires in 10 minutes. Do not share it.
+                </p>
+                <button
+                  type="button"
+                  className="auth-resend-btn"
+                  onClick={handleResendOtp}
+                  disabled={loading || resendLoading || resendCooldown > 0}
+                >
+                  {resendLoading
+                    ? 'Sending...'
+                    : resendCooldown > 0
+                      ? `Resend code in ${resendCooldown}s`
+                      : 'Resend code'}
+                </button>
+              </div>
             </>
           )}
 

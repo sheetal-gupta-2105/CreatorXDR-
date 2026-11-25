@@ -38,7 +38,7 @@ type AuthContextValue = {
 
   verify: (email: string, code: string) => Promise<string>
 
-  logout: () => void
+  logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(currentUser)
         }
       } catch {
-        logoutUser()
+        void logoutUser()
 
         if (active) {
           setUser(null)
@@ -111,8 +111,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // Logout and clear the stored authentication tokens.
-  const logout = useCallback(() => {
-    logoutUser()
+  const logout = useCallback(async () => {
+    await logoutUser()
     setUser(null)
   }, [])
 

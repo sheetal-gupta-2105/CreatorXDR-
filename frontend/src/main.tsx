@@ -1,10 +1,13 @@
 
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
+import { BrowserRouter, Route, Routes } from 'react-router-dom'
 
 import App from './App'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import AuthPage from './pages/AuthPage'
+import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 
 import './index.css'
 
@@ -23,7 +26,13 @@ function AuthGate() {
   }
 
   if (!user) {
-    return <AuthPage />
+    return (
+      <Routes>
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="*" element={<AuthPage />} />
+      </Routes>
+    )
   }
 
   return (
@@ -32,7 +41,9 @@ function AuthGate() {
       <button
         className="auth-signout"
         type="button"
-        onClick={logout}
+        onClick={() => {
+          void logout()
+        }}
         title={`Signed in as ${user.email}`}
       >
         Sign out
@@ -43,8 +54,10 @@ function AuthGate() {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AuthProvider>
-      <AuthGate />
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <AuthGate />
+      </AuthProvider>
+    </BrowserRouter>
   </StrictMode>,
 )

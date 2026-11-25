@@ -65,7 +65,9 @@ export function hasStoredSession() {
   return Boolean(getAccessToken() || getRefreshToken())
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+let refreshPromise: Promise<string | null> | null = null
+
+async function performRefreshAccessToken(): Promise<string | null> {
   const refreshToken = getRefreshToken()
 
   if (!refreshToken) {
@@ -88,13 +90,26 @@ async function refreshAccessToken(): Promise<string | null> {
 
     const data = (await response.json()) as {
       access_token: string
+      refresh_token?: string
     }
 
     sessionStorage.setItem(ACCESS_TOKEN_KEY, data.access_token)
+    if (data.refresh_token) {
+      sessionStorage.setItem(REFRESH_TOKEN_KEY, data.refresh_token)
+    }
     return data.access_token
   } catch {
     return null
   }
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  if (!refreshPromise) {
+    refreshPromise = performRefreshAccessToken().finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
 }
 
 async function apiRequest<T>(
@@ -166,11 +181,12 @@ async function apiRequest<T>(
 
   if (!response.ok) {
     const message =
-      data &&
-      typeof data === 'object' &&
-      'message' in data &&
-      typeof data.message === 'string'
-        ? data.message
+      data && typeof data === 'object'
+        ? 'error' in data && typeof data.error === 'string'
+          ? data.error
+          : 'message' in data && typeof data.message === 'string'
+            ? data.message
+            : `Request failed with status ${response.status}.`
         : `Request failed with status ${response.status}.`
 
     throw new ApiError(message, response.status, data)
@@ -236,8 +252,60 @@ export async function getCurrentUser(): Promise<User> {
   return apiRequest<User>('/auth/me')
 }
 
-export function logoutUser() {
+export async function logoutUser(): Promise<void> {
+  const accessToken = getAccessToken()
+  const refreshToken = getRefreshToken()
+
+  if (accessToken) {
+    try {
+      await fetch(`${API_BASE_URL}/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(
+          refreshToken ? { refresh_token: refreshToken } : {},
+        ),
+      })
+    } catch {
+      // Best-effort server revocation; always clear local tokens.
+    }
+  }
+
   clearAuthTokens()
+}
+
+export async function resendOtp(email: string): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/resend-otp', {
+    method: 'POST',
+    body: { email },
+    token: null,
+    retryOnUnauthorized: false,
+  })
+}
+
+export async function forgotPassword(
+  email: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/forgot-password', {
+    method: 'POST',
+    body: { email },
+    token: null,
+    retryOnUnauthorized: false,
+  })
+}
+
+export async function resetPassword(
+  token: string,
+  newPassword: string,
+): Promise<{ message: string }> {
+  return apiRequest<{ message: string }>('/auth/reset-password', {
+    method: 'POST',
+    body: { token, new_password: newPassword },
+    token: null,
+    retryOnUnauthorized: false,
+  })
 }
 export async function updateUserProfile(
   fullName: string,
