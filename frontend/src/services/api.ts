@@ -103,7 +103,7 @@ async function performRefreshAccessToken(): Promise<string | null> {
   }
 }
 
-async function refreshAccessToken(): Promise<string | null> {
+export async function refreshAccessToken(): Promise<string | null> {
   if (!refreshPromise) {
     refreshPromise = performRefreshAccessToken().finally(() => {
       refreshPromise = null

@@ -1,9 +1,10 @@
 
+import { refreshAccessToken } from './api'
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:5001/api'
 
 const ACCESS_TOKEN_KEY = 'creatorxdr_access_token'
-const REFRESH_TOKEN_KEY = 'creatorxdr_refresh_token'
 
 export type IdentitySubmission = {
   id: string
@@ -37,44 +38,6 @@ export class IdentityApiError extends Error {
     super(message)
     this.name = 'IdentityApiError'
     this.status = status
-  }
-}
-
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = sessionStorage.getItem(REFRESH_TOKEN_KEY)
-
-  if (!refreshToken) {
-    return null
-  }
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${refreshToken}`,
-      },
-    })
-
-    if (!response.ok) {
-      sessionStorage.removeItem(ACCESS_TOKEN_KEY)
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY)
-      return null
-    }
-
-    const data = (await response.json()) as {
-      access_token?: string
-    }
-
-    if (!data.access_token) {
-      sessionStorage.removeItem(ACCESS_TOKEN_KEY)
-      sessionStorage.removeItem(REFRESH_TOKEN_KEY)
-      return null
-    }
-
-    sessionStorage.setItem(ACCESS_TOKEN_KEY, data.access_token)
-    return data.access_token
-  } catch {
-    return null
   }
 }
 

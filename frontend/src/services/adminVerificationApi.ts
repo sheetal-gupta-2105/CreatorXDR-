@@ -1,8 +1,9 @@
+import { refreshAccessToken } from './api'
+
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:5001/api'
 
 const ACCESS_TOKEN_KEY = 'creatorxdr_access_token'
-const REFRESH_TOKEN_KEY = 'creatorxdr_refresh_token'
 
 // --------------------------------------------------
 // TYPES
@@ -82,42 +83,6 @@ export class AdminApiError extends Error {
 
 function getAccessToken(): string | null {
   return sessionStorage.getItem(ACCESS_TOKEN_KEY)
-}
-
-function getRefreshToken(): string | null {
-  return sessionStorage.getItem(REFRESH_TOKEN_KEY)
-}
-
-function saveAccessToken(token: string) {
-  sessionStorage.setItem(ACCESS_TOKEN_KEY, token)
-}
-
-async function refreshAccessToken(): Promise<string | null> {
-  const refreshToken = getRefreshToken()
-
-  if (!refreshToken) return null
-
-  try {
-    const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${refreshToken}`,
-        'Content-Type': 'application/json',
-      },
-    })
-
-    if (!response.ok) return null
-
-    const data = await response.json()
-
-    if (!data.access_token) return null
-
-    saveAccessToken(data.access_token)
-
-    return data.access_token
-  } catch {
-    return null
-  }
 }
 
 // --------------------------------------------------
