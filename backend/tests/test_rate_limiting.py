@@ -230,8 +230,14 @@ def test_upload_per_user_rate_limit(rate_limited_app):
                 role="CREATOR",
             )
 
+        def _fake_execute(_stmt):
+            from unittest.mock import MagicMock
+            res = MagicMock()
+            res.scalar_one_or_none.return_value = _fake_get(None, "user-1")
+            return res
+
         with patch("app.db.session.get", side_effect=_fake_get), \
-             patch("app.routes.verification.db.session.get", side_effect=_fake_get):
+             patch("app.routes.verification.db.session.execute", side_effect=_fake_execute):
             # User 1 makes 2 requests from different IPs (hits user limit of 2 per minute; IP limit is 2 per IP)
             for idx in range(2):
                 resp = client.post(

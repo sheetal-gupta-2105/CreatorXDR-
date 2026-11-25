@@ -1,6 +1,7 @@
 
 import logging
 import re
+from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, request, jsonify, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -12,10 +13,12 @@ from app.models.user import User
 from app.models.verification import VerificationSubmission
 from app.services.document_storage import (
     DocumentValidationError,
+    QuarantineRequiredError,
     read_document,
-    validate_document,
+    validate_document_strict,
     calculate_document_hmac,
     store_document,
+    store_quarantined_document,
     delete_stored_document,
 )
 from app.services.ocr_service import (
@@ -43,7 +46,14 @@ ALLOWED_DOCUMENT_TYPES = {
 def upload_document():
 
     user_id = get_jwt_identity()
-    user = db.session.get(User, user_id)
+    user = (
+        db.session.execute(
+            db.select(User)
+            .where(User.id == user_id)
+            .with_for_update()
+        )
+        .scalar_one_or_none()
+    )
 
     if not user or user.account_status != "ACTIVE":
         return jsonify({
@@ -54,6 +64,33 @@ def upload_document():
         return jsonify({
             "error": "Email verification is required."
         }), 403
+
+    daily_quota = current_app.config.get("UPLOAD_QUOTA_DAILY", 5)
+    total_quota = current_app.config.get("UPLOAD_QUOTA_TOTAL", 20)
+    rolling_24h = datetime.now(timezone.utc) - timedelta(hours=24)
+
+    total_uploads = (
+        VerificationSubmission.query
+        .filter_by(user_id=user.id)
+        .count()
+    )
+    if total_uploads >= total_quota:
+        return jsonify({
+            "error": "Total upload quota exceeded."
+        }), 429
+
+    daily_uploads = (
+        VerificationSubmission.query
+        .filter(
+            VerificationSubmission.user_id == user.id,
+            VerificationSubmission.submitted_at >= rolling_24h,
+        )
+        .count()
+    )
+    if daily_uploads >= daily_quota:
+        return jsonify({
+            "error": "Daily upload quota exceeded. Please try again tomorrow."
+        }), 429
 
     uploaded_file = request.files.get("document")
 
@@ -80,27 +117,62 @@ def upload_document():
             "error": "Issuing country must be a two-letter country code."
         }), 400
 
+    hmac_secret = current_app.config.get("IDENTITY_HMAC_KEY")
+    if not hmac_secret:
+        current_app.logger.error("IDENTITY_HMAC_KEY is not configured.")
+        return jsonify({
+            "error": "Document service is not configured."
+        }), 503
+
     try:
         content = read_document(uploaded_file)
-        mime_type, extension = validate_document(content)
+    except DocumentValidationError as exc:
+        return jsonify({
+            "error": str(exc)
+        }), 400
 
-        hmac_secret = current_app.config.get(
-            "IDENTITY_HMAC_KEY"
-        )
+    document_hmac = calculate_document_hmac(content, hmac_secret)
 
-        if not hmac_secret:
-            current_app.logger.error(
-                "IDENTITY_HMAC_KEY is not configured."
-            )
-            return jsonify({
-                "error": "Document service is not configured."
-            }), 503
-
-        document_hmac = calculate_document_hmac(
+    try:
+        mime_type, extension = validate_document_strict(
             content,
-            hmac_secret,
+            declared_mime=uploaded_file.mimetype,
+            filename=uploaded_file.filename,
+            max_pdf_pages=current_app.config.get("MAX_PDF_PAGES", 20),
+            max_image_pixels=current_app.config.get("MAX_IMAGE_PIXELS", 30_000_000),
         )
+    except QuarantineRequiredError as exc:
+        quarantine_directory = current_app.config["QUARANTINE_STORAGE_PATH"]
+        quarantine_key = None
+        try:
+            quarantine_key = store_quarantined_document(content, quarantine_directory)
+            quarantined_submission = VerificationSubmission(
+                user_id=user.id,
+                document_type=document_type,
+                issuing_country=issuing_country,
+                storage_key=quarantine_key,
+                mime_type=exc.safe_mime_type,
+                file_size_bytes=len(content),
+                document_hmac=document_hmac,
+                status="QUARANTINED",
+                ocr_status="FAILED",
+                quarantined=True,
+                quarantine_reason=exc.reason_code,
+            )
+            db.session.add(quarantined_submission)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
+            if quarantine_key:
+                try:
+                    delete_stored_document(quarantine_key, quarantine_directory)
+                except Exception:
+                    logger.exception("Failed to clean up quarantined document.")
+            logger.exception("Failed to quarantine suspicious document.")
 
+        return jsonify({
+            "error": exc.user_message
+        }), 400
     except DocumentValidationError as exc:
         return jsonify({
             "error": str(exc)

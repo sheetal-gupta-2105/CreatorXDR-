@@ -33,6 +33,7 @@ from app.services.email import (
     send_password_reset_email,
     send_verification_email,
 )
+from app.utils.logging_utils import mask_email
 
 
 auth_bp = Blueprint("auth", __name__)
@@ -103,7 +104,7 @@ def register():
         current_app.logger.warning(
             "========== DEVELOPMENT EMAIL OTP =========="
         )
-        current_app.logger.warning("Email: %s", email)
+        current_app.logger.warning("Email: %s", mask_email(email))
         current_app.logger.warning("OTP: %s", code)
         current_app.logger.warning(
             "============================================="

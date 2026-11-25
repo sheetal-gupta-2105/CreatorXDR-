@@ -90,6 +90,8 @@ def _admin_submission_dict(submission):
         "ocr_status": submission.ocr_status,
         "ocr_confidence": submission.ocr_confidence,
         "duplicate_detected": submission.duplicate_detected,
+        "quarantined": submission.quarantined,
+        "quarantine_reason": submission.quarantine_reason,
         "submitted_at": submission.submitted_at.isoformat(),
         "reviewed_at": (
             submission.reviewed_at.isoformat()
@@ -163,7 +165,8 @@ def list_review_queue():
         .filter(
             VerificationSubmission.status.in_(
                 REVIEWABLE_STATUSES
-            )
+            ),
+            VerificationSubmission.quarantined.is_(False),
         )
     )
 
@@ -214,6 +217,11 @@ def get_submission_details(submission_id):
         return jsonify({
             "error": "Submission not found."
         }), 404
+
+    if submission.quarantined or submission.status == "QUARANTINED":
+        return jsonify({
+            "error": "Quarantined documents cannot be accessed."
+        }), 403
 
     result = OCRResult.query.filter_by(
         submission_id=submission.id
@@ -326,6 +334,11 @@ def get_submission_document(submission_id):
         return jsonify({
             "error": "Submission not found."
         }), 404
+
+    if submission.quarantined or submission.status == "QUARANTINED":
+        return jsonify({
+            "error": "Quarantined documents cannot be accessed."
+        }), 403
 
     if submission.mime_type not in ALLOWED_MIME_TYPES:
         return jsonify({

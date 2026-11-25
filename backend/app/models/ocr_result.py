@@ -30,15 +30,28 @@ class OCRResult(db.Model):
     )
 
     # Encrypted OCR text. Never return this through creator APIs.
+    # Cleared to NULL by retention cleanup after document deletion.
     encrypted_text = db.Column(
         db.Text,
-        nullable=False,
+        nullable=True,
     )
 
     # Encrypted structured extraction.
     # This may contain sensitive identity information.
     encrypted_identity_data = db.Column(
         db.Text,
+        nullable=True,
+    )
+
+    # Encrypted user-confirmed/corrected structured extraction.
+    # Original encrypted_identity_data is preserved for admin comparison.
+    encrypted_corrected_data = db.Column(
+        db.Text,
+        nullable=True,
+    )
+
+    corrected_at = db.Column(
+        db.DateTime(timezone=True),
         nullable=True,
     )
 

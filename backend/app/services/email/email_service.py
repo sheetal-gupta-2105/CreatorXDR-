@@ -2,6 +2,7 @@ import logging
 from typing import Optional
 from flask import render_template, current_app
 from app.tasks.email_tasks import get_email_queue, execute_email_job
+from app.utils.logging_utils import mask_email
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def send_templated_email(
                     result_ttl=60,       # Keep successful job record for only 60 seconds
                     failure_ttl=300,     # Keep failed job record for 5 minutes maximum
                 )
-                logger.info("Enqueued email '%s' for '%s'", subject, to_email)
+                logger.info("Enqueued email '%s' for '%s'", subject, mask_email(to_email))
                 return True
         except Exception as e:
             logger.warning("Failed to enqueue email task (%s)", str(e))
@@ -76,7 +77,7 @@ def send_templated_email(
         if async_send:
             logger.warning(
                 "Triggering synchronous email fallback for '%s' because Redis/queue was unavailable (EMAIL_SYNC_FALLBACK is enabled).",
-                to_email,
+                mask_email(to_email),
             )
         try:
             execute_email_job(
@@ -95,7 +96,7 @@ def send_templated_email(
     logger.warning(
         "Email '%s' to '%s' dropped because async queue was unavailable and EMAIL_SYNC_FALLBACK is disabled.",
         subject,
-        to_email,
+        mask_email(to_email),
     )
     return False
 

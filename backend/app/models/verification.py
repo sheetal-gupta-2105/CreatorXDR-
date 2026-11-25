@@ -17,10 +17,10 @@ class VerificationSubmission(db.Model):
     __table_args__ = (
         CheckConstraint(
             "status IN ("
-            "'PENDING_REVIEW', 'UNDER_REVIEW', "
+            "'AWAITING_CONFIRMATION', 'PENDING_REVIEW', 'UNDER_REVIEW', "
             "'NEEDS_RESUBMISSION', 'REJECTED', "
             "'APPROVED', 'PENDING_CHAIN', "
-            "'CHAIN_FAILED', 'VERIFIED'"
+            "'CHAIN_FAILED', 'VERIFIED', 'QUARANTINED'"
             ")",
             name="ck_verification_submission_status",
         ),
@@ -120,6 +120,35 @@ class VerificationSubmission(db.Model):
         nullable=True,
     )
 
+    deletion_reason = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
+    quarantined = db.Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
+    quarantine_reason = db.Column(
+        db.String(255),
+        nullable=True,
+    )
+
+    confirmed_at = db.Column(
+        db.DateTime(timezone=True),
+        nullable=True,
+    )
+
+    correction_mismatch = db.Column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
     created_at = db.Column(
         db.DateTime(timezone=True),
         nullable=False,
@@ -156,6 +185,11 @@ class VerificationSubmission(db.Model):
             "status": self.status,
             "ocr_status": self.ocr_status,
             "ocr_confidence": self.ocr_confidence,
+            "quarantined": self.quarantined,
+            "confirmed_at": (
+                self.confirmed_at.isoformat()
+                if self.confirmed_at else None
+            ),
             "submitted_at": self.submitted_at.isoformat(),
             "reviewed_at": (
                 self.reviewed_at.isoformat()

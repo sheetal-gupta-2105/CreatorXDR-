@@ -73,6 +73,20 @@ class Config:
         "IDENTITY_STORAGE_PATH",
         str(BACKEND_DIR / "storage" / "identity_documents"),
     )
+    QUARANTINE_STORAGE_PATH = os.getenv(
+        "QUARANTINE_STORAGE_PATH",
+        str(BACKEND_DIR / "storage" / "quarantined_documents"),
+    )
+
+    UPLOAD_QUOTA_DAILY = int(os.getenv("UPLOAD_QUOTA_DAILY", "5"))
+    UPLOAD_QUOTA_TOTAL = int(os.getenv("UPLOAD_QUOTA_TOTAL", "20"))
+    MAX_PDF_PAGES = int(os.getenv("MAX_PDF_PAGES", "20"))
+    MAX_IMAGE_PIXELS = int(os.getenv("MAX_IMAGE_PIXELS", "30000000"))
+
+    RETENTION_DRAFT_DAYS = int(os.getenv("RETENTION_DRAFT_DAYS", "7"))
+    RETENTION_QUARANTINED_DAYS = int(os.getenv("RETENTION_QUARANTINED_DAYS", "30"))
+    RETENTION_REJECTED_DAYS = int(os.getenv("RETENTION_REJECTED_DAYS", "90"))
+    RETENTION_APPROVED_DAYS = int(os.getenv("RETENTION_APPROVED_DAYS", "365"))
 
     OCR_ENCRYPTION_KEY = os.getenv("OCR_ENCRYPTION_KEY")
 
