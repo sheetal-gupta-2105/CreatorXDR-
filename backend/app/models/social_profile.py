@@ -84,11 +84,12 @@ class CreatorSocialProfile(db.Model):
 
     def to_dict(self):
         return {
-            "id": self.id,
-            "platform": self.platform,
-            "username": self.username,
-            "display_name": self.display_name,
-            "bio": self.bio,
-            "source": self.source,
-            "created_at": self.created_at.isoformat(),
-        }
+        "id": self.id,
+        "platform": self.platform,
+        "username": self.username,
+        "display_name": self.display_name,
+        "bio": self.bio,
+        "has_profile_image": bool(self.profile_image_path),
+        "source": self.source,
+        "created_at": self.created_at.isoformat(),
+    }

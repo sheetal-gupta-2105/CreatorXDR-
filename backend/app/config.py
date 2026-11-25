@@ -56,6 +56,7 @@ class Config:
         "1", "true", "yes"
     }
 
+
     IDENTITY_HMAC_KEY = os.getenv("IDENTITY_HMAC_KEY")
 
     IDENTITY_STORAGE_PATH = os.getenv(
@@ -63,7 +64,19 @@ class Config:
         str(BACKEND_DIR / "storage" / "identity_documents"),
     )
 
+    PROFILE_IMAGE_STORAGE_PATH = os.getenv(
+        "PROFILE_IMAGE_STORAGE_PATH",
+        str(BACKEND_DIR / "storage" / "profile_images"),
+    )
+
     OCR_ENCRYPTION_KEY = os.getenv("OCR_ENCRYPTION_KEY")
 
+    # Upload limits
     MAX_DOCUMENT_SIZE = 5 * 1024 * 1024
+    MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
+
+    # Request-level limit, including multipart overhead
     MAX_CONTENT_LENGTH = 6 * 1024 * 1024
+
+    # Image validation limits
+    MAX_PROFILE_IMAGE_DIMENSION = 4096

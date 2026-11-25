@@ -21,15 +21,16 @@ export type InvestigationStatus =
   | 'SAFE'
   | 'DISMISSED'
 
-export type SocialProfile = {
-  id: string
-  platform: SocialPlatform
-  username: string
-  display_name: string | null
-  bio: string | null
-  source: string
-  created_at: string
-}
+  export type SocialProfile = {
+    id: string
+    platform: SocialPlatform
+    username: string
+    display_name: string | null
+    bio: string | null
+    has_profile_image: boolean
+    source: string
+    created_at: string
+  }
 
 export type ProfileInput = {
   platform: SocialPlatform
@@ -225,14 +226,45 @@ export async function getReferenceProfiles(): Promise<SocialProfile[]> {
 }
 
 // Register a genuine creator profile.
+// Register a genuine creator profile with an optional image.
 export async function createReferenceProfile(
   profile: ProfileInput,
+  image?: File,
 ): Promise<SocialProfile> {
+  let body: BodyInit
+
+  if (image) {
+    const formData = new FormData()
+    formData.append('profile', JSON.stringify(profile))
+    formData.append('profile_image', image)
+    body = formData
+  } else {
+    body = JSON.stringify(profile)
+  }
+
   const data = await authenticatedRequest<CreateProfileResponse>(
     '/threats/reference-profiles',
     {
       method: 'POST',
-      body: JSON.stringify(profile),
+      body,
+    },
+  )
+
+  return data.profile
+}
+// Upload or replace the image for an existing reference profile.
+export async function uploadReferenceProfileImage(
+  profileId: string,
+  image: File,
+): Promise<SocialProfile> {
+  const formData = new FormData()
+  formData.append('profile_image', image)
+
+  const data = await authenticatedRequest<CreateProfileResponse>(
+    `/threats/reference-profiles/${encodeURIComponent(profileId)}/image`,
+    {
+      method: 'POST',
+      body: formData,
     },
   )
 
@@ -240,14 +272,38 @@ export async function createReferenceProfile(
 }
 
 // Analyze a candidate profile against a genuine profile.
+// Analyze a candidate profile with an optional profile image.
 export async function analyzeCandidateProfile(
   input: CandidateAnalysisInput,
+  image?: File,
 ): Promise<ThreatDetection> {
+  let body: BodyInit
+
+  if (image) {
+    const formData = new FormData()
+
+    formData.append(
+      'reference_profile_id',
+      input.reference_profile_id,
+    )
+
+    formData.append(
+      'candidate_profile',
+      JSON.stringify(input.candidate_profile),
+    )
+
+    formData.append('candidate_image', image)
+
+    body = formData
+  } else {
+    body = JSON.stringify(input)
+  }
+
   const data = await authenticatedRequest<AnalyzeResponse>(
     '/threats/analyze',
     {
       method: 'POST',
-      body: JSON.stringify(input),
+      body,
     },
   )
 

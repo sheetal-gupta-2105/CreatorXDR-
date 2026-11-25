@@ -8,6 +8,7 @@ import {
   ChevronRight,
   CircleHelp,
   Clock3,
+  ImagePlus,
   LoaderCircle,
   Plus,
   RefreshCw,
@@ -23,6 +24,7 @@ import {
   getReferenceProfiles,
   getThreatDetections,
   updateThreatStatus,
+  uploadReferenceProfileImage,
   ThreatApiError,
 } from '../services/threatApi'
 import type {
@@ -137,7 +139,7 @@ function ProfileForm({
   description: string
   submitLabel: string
   busy: boolean
-  onSubmit: (profile: ProfileInput) => Promise<void>
+  onSubmit: (profile: ProfileInput, image?: File) => Promise<void>
   onCancel?: () => void
 }) {
   const [platform, setPlatform] = useState<SocialPlatform>('INSTAGRAM')
@@ -145,6 +147,7 @@ function ProfileForm({
   const [displayName, setDisplayName] = useState('')
   const [bio, setBio] = useState('')
   const [formError, setFormError] = useState('')
+  const [image, setImage] = useState<File | undefined>()
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -156,13 +159,16 @@ function ProfileForm({
     }
 
     try {
-      await onSubmit({
-        platform,
-        username: username.trim().replace(/^@/, ''),
-        display_name: displayName.trim(),
-        bio: bio.trim(),
-      })
-
+      await onSubmit(
+        {
+          platform,
+          username: username.trim().replace(/^@/, ''),
+          display_name: displayName.trim(),
+          bio: bio.trim(),
+        },
+        image,
+      )
+      setImage(undefined)
       setUsername('')
       setDisplayName('')
       setBio('')
@@ -239,7 +245,48 @@ function ProfileForm({
           disabled={busy}
         />
       </label>
+      <label className="threat-field">
+  <span>Profile image <small>Optional</small></span>
+  <input
+    type="file"
+    accept="image/jpeg,image/png,image/webp"
+    disabled={busy}
+    onChange={(event) => {
+      const file = event.target.files?.[0]
 
+      if (!file) {
+        setImage(undefined)
+        return
+      }
+
+      const allowedTypes = [
+        'image/jpeg',
+        'image/png',
+        'image/webp',
+      ]
+
+      if (!allowedTypes.includes(file.type)) {
+        setFormError('Choose a JPEG, PNG or WebP image.')
+        event.target.value = ''
+        setImage(undefined)
+        return
+      }
+
+      if (file.size > 5 * 1024 * 1024) {
+        setFormError('The image must be smaller than 5 MB.')
+        event.target.value = ''
+        setImage(undefined)
+        return
+      }
+
+      setFormError('')
+      setImage(file)
+    }}
+  />
+  <small>
+    {image ? `Selected: ${image.name}` : 'Maximum size 5 MB. Image comparison is optional.'}
+  </small>
+</label>
       {formError && (
         <div className="threat-message threat-message-error" role="alert">
           <AlertCircle size={16} />
@@ -432,7 +479,7 @@ export default function ThreatMonitoringPage() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [search, setSearch] = useState('')
-
+  const [uploadingReferenceId, setUploadingReferenceId] = useState<string | null>(null)
   const loadDashboard = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true)
     else setLoading(true)
@@ -498,26 +545,59 @@ export default function ThreatMonitoringPage() {
       )
     })
   }, [detections, search])
+  async function handleReferenceImageUpload(
+    profileId: string,
+    image?: File,
+  ) {
+    if (!image) return
 
-  async function handleCreateReference(profile: ProfileInput) {
+    setUploadingReferenceId(profileId)
+    setError('')
+    setNotice('')
+
+    try {
+      const updatedProfile = await uploadReferenceProfileImage(
+        profileId,
+        image,
+      )
+
+      setProfiles((current) =>
+        current.map((profile) =>
+          profile.id === profileId ? updatedProfile : profile,
+        ),
+      )
+
+      setNotice('Reference profile image uploaded successfully.')
+    } catch (err) {
+      setError(getErrorMessage(err))
+    } finally {
+      setUploadingReferenceId(null)
+    }
+  }
+  async function handleCreateReference(
+    profile: ProfileInput,
+    image?: File,
+  ) {
     setSavingProfile(true)
     setError('')
     setNotice('')
 
     try {
-      const created = await createReferenceProfile(profile)
+      const created = await createReferenceProfile(profile, image)
+
       setProfiles((current) => [created, ...current])
       setSelectedReferenceId(created.id)
       setShowReferenceForm(false)
       setNotice('Your reference profile has been saved.')
-    } catch (err) {
-      throw err
     } finally {
       setSavingProfile(false)
     }
   }
 
-  async function handleAnalyze(profile: ProfileInput) {
+  async function handleAnalyze(
+    profile: ProfileInput,
+    image?: File,
+  ) {
     if (!selectedReferenceId) {
       setError('Add a genuine reference profile before analyzing candidates.')
       return
@@ -528,10 +608,13 @@ export default function ThreatMonitoringPage() {
     setNotice('')
 
     try {
-      const detection = await analyzeCandidateProfile({
-        reference_profile_id: selectedReferenceId,
-        candidate_profile: profile,
-      })
+      const detection = await analyzeCandidateProfile(
+        {
+          reference_profile_id: selectedReferenceId,
+          candidate_profile: profile,
+        },
+        image,
+      )
 
       setDetections((current) => [detection, ...current])
       setSelectedDetectionId(detection.id)
@@ -673,27 +756,73 @@ export default function ThreatMonitoringPage() {
               <span>Add your genuine social account to establish a baseline.</span>
             </div>
           ) : (
-            <div className="threat-profile-list">
-              {profiles.map((profile) => (
-                <button
-                  type="button"
-                  key={profile.id}
-                  className={`threat-profile-item ${selectedReferenceId === profile.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedReferenceId(profile.id)}
-                >
-                  <span className="threat-profile-avatar">
-                    {profile.username.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="threat-profile-copy">
-                    <strong>@{profile.username}</strong>
-                    <small>{platformLabel(profile.platform)} · {profile.display_name || 'No display name'}</small>
-                  </span>
-                  {selectedReferenceId === profile.id && (
-                    <CheckCircle2 size={17} className="threat-selected-icon" />
-                  )}
-                </button>
-              ))}
-            </div>
+                                <div className="threat-profile-list">
+  {profiles.map((profile) => (
+    <div
+      key={profile.id}
+      className={`threat-profile-row ${selectedReferenceId === profile.id ? 'selected' : ''}`}
+    >
+      <button
+        type="button"
+        className="threat-profile-item"
+        onClick={() => setSelectedReferenceId(profile.id)}
+      >
+        <span className="threat-profile-avatar">
+          {profile.username.charAt(0).toUpperCase()}
+        </span>
+
+        <span className="threat-profile-copy">
+          <strong>@{profile.username}</strong>
+          <small>
+            {platformLabel(profile.platform)} · {profile.display_name || 'No display name'}
+          </small>
+          <small>
+            {profile.has_profile_image ? 'Image available' : 'No profile image'}
+          </small>
+        </span>
+
+        {selectedReferenceId === profile.id && (
+          <CheckCircle2 size={17} className="threat-selected-icon" />
+        )}
+      </button>
+
+      <label
+        className="threat-image-upload-button"
+        title="Upload or replace profile image"
+      >
+        {uploadingReferenceId === profile.id ? (
+          <LoaderCircle size={16} className="threat-spinner" />
+        ) : (
+          <ImagePlus size={16} />
+        )}
+
+        <input
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          disabled={uploadingReferenceId !== null}
+          onChange={(event) => {
+            const file = event.target.files?.[0]
+            event.target.value = ''
+
+            if (!file) return
+
+            if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+              setError('Choose a JPEG, PNG or WebP image.')
+              return
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+              setError('The image must be smaller than 5 MB.')
+              return
+            }
+
+            void handleReferenceImageUpload(profile.id, file)
+          }}
+        />
+      </label>
+    </div>
+  ))}
+</div>
           )}
 
           <button
@@ -878,7 +1007,7 @@ export default function ThreatMonitoringPage() {
         <CircleHelp size={16} />
         <p>
           Risk scores are heuristic indicators, not calibrated probabilities or proof of impersonation.
-          Review the evidence before making a decision. Image comparison is not yet connected.
+          Review the evidence before making a decision. Image similarity is calculated when both reference and candidate images are available.
         </p>
       </div>
     </div>

@@ -956,4 +956,62 @@
       justify-content: center;
     }
   }
-  
+  /* Reference profile image upload */
+
+.threat-profile-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 3px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  transition: border-color var(--cx-transition),
+    background var(--cx-transition);
+}
+
+.threat-profile-row.selected {
+  border-color: rgba(0, 102, 204, 0.25);
+  background: #f1f7ff;
+}
+
+.threat-profile-row .threat-profile-item {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+}
+
+.threat-profile-row .threat-profile-item:hover {
+  background: transparent;
+}
+
+.threat-image-upload-button {
+  width: 35px;
+  height: 35px;
+  flex: 0 0 35px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--cx-border);
+  border-radius: 8px;
+  color: var(--cx-primary);
+  background: var(--cx-white);
+  cursor: pointer;
+  transition: background var(--cx-transition),
+    border-color var(--cx-transition);
+}
+
+.threat-image-upload-button:hover {
+  border-color: var(--cx-primary);
+  background: var(--cx-pearl);
+}
+
+.threat-image-upload-button input {
+  display: none;
+}
+
+.threat-image-upload-button:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
