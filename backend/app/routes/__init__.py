@@ -1,4 +1,4 @@
-
+from app.routes.threats import threats_bp
 from app.routes.health import health_bp
 from app.routes.auth import auth_bp
 from app.routes.verification import verification_bp
@@ -11,4 +11,5 @@ __all__ = [
     "verification_bp",
     "admin_verification_bp",
     "admin_blockchain_bp",
+     "threats_bp",
 ]

@@ -1,4 +1,3 @@
-
 import os
 from pathlib import Path
 from datetime import timedelta
@@ -67,6 +66,7 @@ class Config:
         "1", "true", "yes"
     }
 
+
     IDENTITY_HMAC_KEY = os.getenv("IDENTITY_HMAC_KEY")
 
     IDENTITY_STORAGE_PATH = os.getenv(
@@ -88,9 +88,18 @@ class Config:
     RETENTION_REJECTED_DAYS = int(os.getenv("RETENTION_REJECTED_DAYS", "90"))
     RETENTION_APPROVED_DAYS = int(os.getenv("RETENTION_APPROVED_DAYS", "365"))
 
+    PROFILE_IMAGE_STORAGE_PATH = os.getenv(
+        "PROFILE_IMAGE_STORAGE_PATH",
+        str(BACKEND_DIR / "storage" / "profile_images"),
+    )
+
     OCR_ENCRYPTION_KEY = os.getenv("OCR_ENCRYPTION_KEY")
 
+    # Upload limits
     MAX_DOCUMENT_SIZE = 5 * 1024 * 1024
+    MAX_PROFILE_IMAGE_SIZE = 5 * 1024 * 1024
+
+    # Request-level limit, including multipart overhead
     MAX_CONTENT_LENGTH = 6 * 1024 * 1024
 
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -106,7 +115,7 @@ class Config:
     RATELIMIT_STRATEGY = os.getenv("RATELIMIT_STRATEGY", "moving-window")
     RATELIMIT_DEFAULT = os.getenv("RATELIMIT_DEFAULT", "200 per minute")
     RATELIMIT_HEADERS_ENABLED = True
-    RATELIMIT_IN_MEMORY_FALLBACK = os.getenv("RATELIMIT_DEFAULT", "200 per minute")
+    RATELIMIT_IN_MEMORY_FALLBACK = RATELIMIT_DEFAULT
 
     RATELIMIT_ENABLED = os.getenv("RATELIMIT_ENABLED", "false" if (os.getenv("TESTING") == "true") else "true").lower() in {
         "1", "true", "yes"
@@ -166,3 +175,5 @@ class Config:
         "1", "true", "yes"
     }
 
+    # Image validation limits (from upstream threat detection)
+    MAX_PROFILE_IMAGE_DIMENSION = 4096

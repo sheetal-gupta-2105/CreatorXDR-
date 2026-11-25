@@ -1,9 +1,10 @@
-
-import { useState } from 'react'
+import ThreatMonitoringPage from './pages/ThreatMonitoringPage'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { ClipboardCheck } from 'lucide-react'
 import AdminVerificationPage from './pages/AdminVerificationPage'
 import AdminBlockchainPage from './pages/AdminBlockchainPage'
+import { getThreatDetections } from './services/threatApi'
 import {
   Activity,
   AlertTriangle,
@@ -131,6 +132,44 @@ function Sidebar({
 }) {
   const { logout, user } = useAuth()
 
+  const [activeThreatCount, setActiveThreatCount] =
+    useState<number | null>(null)
+
+  useEffect(() => {
+    let isMounted = true
+
+    const fetchThreatCount = async () => {
+      try {
+        const response = await getThreatDetections()
+
+        const activeCount = response.detections.filter(
+          (detection) =>
+            !['SAFE', 'DISMISSED'].includes(
+              detection.investigation_status.toUpperCase(),
+            ),
+        ).length
+
+        if (isMounted) {
+          setActiveThreatCount(activeCount)
+        }
+      } catch {
+        // Keep navigation usable if threat data is unavailable.
+      }
+    }
+
+    void fetchThreatCount()
+
+    const intervalId = window.setInterval(
+      fetchThreatCount,
+      30_000,
+    )
+
+    return () => {
+      isMounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
 
   const displayName = getDisplayName(
@@ -228,11 +267,15 @@ function Sidebar({
 
                       <span>{item.label}</span>
 
-                      {item.path === '/threats' && (
-                        <span className="nav-count">
-                          2
-                        </span>
-                      )}
+                      {item.path === '/threats' &&
+  activeThreatCount !== null &&
+  activeThreatCount > 0 && (
+    <span className="nav-count">
+      {activeThreatCount > 99
+        ? '99+'
+        : activeThreatCount}
+    </span>
+  )}
                     </NavLink>
                   )
                 })}
@@ -1150,12 +1193,9 @@ function WorkspaceLayout() {
           />
 
           <Route
-            path="/threats"
-            element={
-              <PlaceholderPage title="Threat monitoring" />
-            }
+             path="/threats"
+              element={<ThreatMonitoringPage />}
           />
-
           <Route
             path="/reports"
             element={

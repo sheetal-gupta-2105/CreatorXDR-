@@ -31,6 +31,14 @@ from app.routes import (
     admin_verification_bp,
     admin_blockchain_bp,
 )
+from app.routes import (
+    health_bp,
+    auth_bp,
+    verification_bp,
+    admin_verification_bp,
+    admin_blockchain_bp,
+    threats_bp,
+)
 
 from app.services.auth_service import (
     _ensure_utc,
@@ -68,6 +76,11 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
+        # Register creator threat detection routes
+    app.register_blueprint(
+        threats_bp,
+        url_prefix="/api/threats",
+    )
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(_jwt_header, jwt_payload):
