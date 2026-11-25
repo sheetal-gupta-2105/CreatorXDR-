@@ -5,7 +5,8 @@ from flask import Blueprint, jsonify, request, current_app
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from sqlalchemy.exc import IntegrityError
 
-from app.extensions import db
+from app.extensions import db, limiter
+from app.extensions.limiter import get_user_or_ip
 from app.models.user import User
 from app.models.social_profile import CreatorSocialProfile
 from app.models.monitored_profile import MonitoredProfile
@@ -80,6 +81,7 @@ def _store_profile_image(upload):
         storage_path=current_app.config["PROFILE_IMAGE_STORAGE_PATH"],
         max_size=current_app.config["MAX_PROFILE_IMAGE_SIZE"],
         max_dimension=current_app.config["MAX_PROFILE_IMAGE_DIMENSION"],
+        max_pixels=current_app.config.get("MAX_IMAGE_PIXELS"),
     )
 
 
@@ -194,6 +196,10 @@ def _owned_detection_query(user_id):
 
 
 @threats_bp.get("/reference-profiles")
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_READ", "60 per minute"),
+    key_func=get_user_or_ip,
+)
 @jwt_required()
 def list_reference_profiles():
     user = _get_active_creator()
@@ -218,6 +224,13 @@ def list_reference_profiles():
 
 
 @threats_bp.post("/reference-profiles")
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_PROFILE_WRITE", "30 per hour"),
+    key_func=get_user_or_ip,
+)
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_PROFILE_WRITE_IP", "60 per hour")
+)
 @jwt_required()
 def create_reference_profile():
     user = _get_active_creator()
@@ -277,6 +290,13 @@ def create_reference_profile():
 
 
 @threats_bp.post("/reference-profiles/<profile_id>/image")
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_PROFILE_WRITE", "30 per hour"),
+    key_func=get_user_or_ip,
+)
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_PROFILE_WRITE_IP", "60 per hour")
+)
 @jwt_required()
 def upload_reference_profile_image(profile_id):
     user = _get_active_creator()
@@ -330,6 +350,13 @@ def upload_reference_profile_image(profile_id):
 
 
 @threats_bp.post("/analyze")
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_ANALYZE", "20 per hour"),
+    key_func=get_user_or_ip,
+)
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_ANALYZE_IP", "40 per hour")
+)
 @jwt_required()
 def analyze_candidate_profile():
     user = _get_active_creator()
@@ -402,6 +429,14 @@ def analyze_candidate_profile():
                     candidate.profile_image_path
                 ),
             },
+            max_image_dimension=current_app.config.get(
+                "MAX_PROFILE_IMAGE_DIMENSION",
+                4096,
+            ),
+            max_image_pixels=current_app.config.get(
+                "MAX_IMAGE_PIXELS",
+                30_000_000,
+            ),
         )
 
         detection = ThreatDetection(
@@ -441,6 +476,10 @@ def analyze_candidate_profile():
 
 
 @threats_bp.get("/detections")
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_READ", "60 per minute"),
+    key_func=get_user_or_ip,
+)
 @jwt_required()
 def list_detections():
     user = _get_active_creator()
@@ -470,6 +509,10 @@ def list_detections():
 
 
 @threats_bp.get("/detections/<detection_id>")
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_READ", "60 per minute"),
+    key_func=get_user_or_ip,
+)
 @jwt_required()
 def get_detection(detection_id):
     user = _get_active_creator()
@@ -494,6 +537,10 @@ def get_detection(detection_id):
 
 
 @threats_bp.patch("/detections/<detection_id>/status")
+@limiter.limit(
+    lambda: current_app.config.get("RATELIMIT_THREAT_READ", "60 per minute"),
+    key_func=get_user_or_ip,
+)
 @jwt_required()
 def update_detection_status(detection_id):
     user = _get_active_creator()

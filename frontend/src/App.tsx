@@ -132,10 +132,17 @@ function Sidebar({
 }) {
   const { logout, user } = useAuth()
 
+  const canPollThreats =
+    user?.role?.toUpperCase() === 'CREATOR' && Boolean(user.email_verified)
+
   const [activeThreatCount, setActiveThreatCount] =
     useState<number | null>(null)
 
   useEffect(() => {
+    if (!canPollThreats) {
+      return
+    }
+
     let isMounted = true
 
     const fetchThreatCount = async () => {
@@ -168,7 +175,9 @@ function Sidebar({
       isMounted = false
       window.clearInterval(intervalId)
     }
-  }, [])
+  }, [canPollThreats, user?.id])
+
+  const visibleThreatCount = canPollThreats ? activeThreatCount : null
 
   const isAdmin = user?.role?.toUpperCase() === 'ADMIN'
 
@@ -247,7 +256,11 @@ function Sidebar({
               </p>
 
               {navigation
-                .filter((item) => item.section === section)
+                .filter(
+                  (item) =>
+                    item.section === section &&
+                    (item.path !== '/threats' || canPollThreats),
+                )
                 .map((item) => {
                   const Icon = item.icon
 
@@ -268,12 +281,12 @@ function Sidebar({
                       <span>{item.label}</span>
 
                       {item.path === '/threats' &&
-  activeThreatCount !== null &&
-  activeThreatCount > 0 && (
+  visibleThreatCount !== null &&
+  visibleThreatCount > 0 && (
     <span className="nav-count">
-      {activeThreatCount > 99
+      {visibleThreatCount > 99
         ? '99+'
-        : activeThreatCount}
+        : visibleThreatCount}
     </span>
   )}
                     </NavLink>
@@ -1128,6 +1141,9 @@ function WorkspaceLayout() {
 
   const { user } = useAuth()
 
+  const isEligibleCreator =
+    user?.role?.toUpperCase() === 'CREATOR' && Boolean(user.email_verified)
+
   const currentPage =
     navigation.find(
       (item) => item.path === location.pathname,
@@ -1193,8 +1209,14 @@ function WorkspaceLayout() {
           />
 
           <Route
-             path="/threats"
-              element={<ThreatMonitoringPage />}
+            path="/threats"
+            element={
+              isEligibleCreator ? (
+                <ThreatMonitoringPage />
+              ) : (
+                <PlaceholderPage title="Access denied" />
+              )
+            }
           />
           <Route
             path="/reports"

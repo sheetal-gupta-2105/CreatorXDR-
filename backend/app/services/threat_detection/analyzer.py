@@ -11,6 +11,8 @@ from app.services.threat_detection.risk_scorer import (
 def analyze_profile(
     reference_profile: dict,
     candidate_profile: dict,
+    max_image_dimension: int = 4096,
+    max_image_pixels: int = 30_000_000,
 ) -> dict:
     """
     Analyze a candidate social profile against a reference creator.
@@ -33,6 +35,8 @@ def analyze_profile(
         calculated_image_score = image_similarity(
             reference_image,
             candidate_image,
+            max_dimension=max_image_dimension,
+            max_pixels=max_image_pixels,
         )
 
     result = calculate_risk_score(

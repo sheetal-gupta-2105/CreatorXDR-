@@ -22,6 +22,7 @@ def save_profile_image(
     storage_path: str | Path,
     max_size: int = 5 * 1024 * 1024,
     max_dimension: int = 4096,
+    max_pixels: int | None = None,
 ) -> str:
     """
     Validate, normalize and privately store a profile image.
@@ -68,16 +69,23 @@ def save_profile_image(
                     )
 
                 width, height = image.size
+                effective_max_pixels = (
+                    max_pixels
+                    if max_pixels is not None
+                    else max_dimension * max_dimension
+                )
 
                 if (
                     width <= 0
                     or height <= 0
                     or width > max_dimension
                     or height > max_dimension
+                    or (width * height) > effective_max_pixels
                 ):
                     raise ProfileImageError(
                         "Image dimensions must not exceed "
-                        f"{max_dimension} x {max_dimension} pixels."
+                        f"{max_dimension} x {max_dimension} pixels "
+                        f"({effective_max_pixels} total pixels)."
                     )
 
                 image.verify()

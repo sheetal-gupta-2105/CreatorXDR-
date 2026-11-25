@@ -30,13 +30,6 @@ from app.routes import (
     verification_bp,
     admin_verification_bp,
     admin_blockchain_bp,
-)
-from app.routes import (
-    health_bp,
-    auth_bp,
-    verification_bp,
-    admin_verification_bp,
-    admin_blockchain_bp,
     threats_bp,
 )
 
@@ -76,11 +69,6 @@ def create_app(test_config=None):
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
-        # Register creator threat detection routes
-    app.register_blueprint(
-        threats_bp,
-        url_prefix="/api/threats",
-    )
 
     @jwt.token_in_blocklist_loader
     def check_if_token_revoked(_jwt_header, jwt_payload):
@@ -215,6 +203,12 @@ def create_app(test_config=None):
         url_prefix="/api/admin/blockchain",
     )
 
+    # Register creator threat detection routes
+    app.register_blueprint(
+        threats_bp,
+        url_prefix="/api/threats",
+    )
+
     # Secure administrator creation command
     @app.cli.command("create-admin")
     def create_admin():
@@ -274,6 +268,44 @@ def create_app(test_config=None):
 
         click.echo(
             f"Administrator account created for {email}."
+        )
+
+    @app.cli.command("cleanup-threat-images")
+    @click.option(
+        "--dry-run",
+        is_flag=True,
+        default=False,
+        help="Report eligible expired and orphaned threat images without deleting.",
+    )
+    @click.option(
+        "--retention-days",
+        type=int,
+        default=None,
+        help="Override RETENTION_THREAT_IMAGE_DAYS.",
+    )
+    def cleanup_threat_images_command(dry_run, retention_days):
+        """Safely clean up expired resolved and orphaned threat profile images."""
+        from app.services.threat_detection.image_retention import cleanup_threat_images
+
+        days = (
+            retention_days
+            if retention_days is not None
+            else app.config.get("RETENTION_THREAT_IMAGE_DAYS", 90)
+        )
+        try:
+            summary = cleanup_threat_images(
+                storage_path=app.config["PROFILE_IMAGE_STORAGE_PATH"],
+                retention_days=days,
+                dry_run=dry_run,
+            )
+        except ValueError as exc:
+            raise click.ClickException(str(exc)) from exc
+        click.echo(
+            f"Threat image cleanup ({'DRY RUN' if dry_run else 'APPLIED'}): "
+            f"expired_cleared={summary['expired_cleared']}, "
+            f"orphans_deleted={summary['orphans_deleted']}, "
+            f"missing_files={summary['missing_files']}, "
+            f"skipped={summary['skipped']}"
         )
 
     # Handle oversized document uploads

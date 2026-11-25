@@ -35,6 +35,7 @@ import type {
   SocialProfile,
   ThreatDetection,
 } from '../services/threatApi'
+import { useAuth } from '../context/AuthContext'
 import './ThreatMonitoring.css'
 
 const PLATFORMS: SocialPlatform[] = [
@@ -465,6 +466,10 @@ function DetectionDetails({
 }
 
 export default function ThreatMonitoringPage() {
+  const { user } = useAuth()
+  const isEligibleCreator =
+    user?.role?.toUpperCase() === 'CREATOR' && Boolean(user.email_verified)
+
   const [profiles, setProfiles] = useState<SocialProfile[]>([])
   const [detections, setDetections] = useState<ThreatDetection[]>([])
   const [selectedDetectionId, setSelectedDetectionId] = useState<string | null>(null)
@@ -481,6 +486,10 @@ export default function ThreatMonitoringPage() {
   const [search, setSearch] = useState('')
   const [uploadingReferenceId, setUploadingReferenceId] = useState<string | null>(null)
   const loadDashboard = useCallback(async (refresh = false) => {
+    if (!isEligibleCreator) {
+      return
+    }
+
     if (refresh) setRefreshing(true)
     else setLoading(true)
 
@@ -507,11 +516,14 @@ export default function ThreatMonitoringPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [isEligibleCreator])
 
   useEffect(() => {
+    if (!isEligibleCreator) {
+      return
+    }
     void loadDashboard()
-  }, [loadDashboard])
+  }, [isEligibleCreator, loadDashboard])
 
   const selectedDetection = useMemo(
     () => detections.find((item) => item.id === selectedDetectionId) ?? null,
@@ -648,6 +660,22 @@ export default function ThreatMonitoringPage() {
     } finally {
       setUpdatingStatus(false)
     }
+  }
+
+  if (!isEligibleCreator) {
+    return (
+      <div className="page-content threat-page">
+        <div className="panel threat-empty-state" role="alert">
+          <div className="threat-empty-icon">
+            <ShieldAlert size={25} />
+          </div>
+          <h3>Access denied</h3>
+          <p>
+            Threat monitoring is only available to email-verified creator accounts.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
